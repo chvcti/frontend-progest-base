@@ -73,7 +73,8 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
               <CardTitle class="text-lg flex items-center gap-2">
-                Pedido #{{ pedido.id }}
+                <span v-if="pedido.tipo === 'D'">Devolução #{{ pedido.numero_pedido || pedido.id }}</span>
+                <span v-else>Pedido #{{ pedido.numero_pedido || pedido.id }}</span>
                 <span v-if="pedido.status_solicitacao === 'C'" class="text-xs font-normal text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
                   Rascunho não enviado
                 </span>
@@ -81,8 +82,12 @@
               <Badge :variant="getStatusVariant(pedido.status_solicitacao)">
                 {{ getStatusLabel(pedido.status_solicitacao) }}
               </Badge>
-              <Badge v-if="pedido.tem_devolucao" variant="outline" class="border-amber-500 text-amber-700 bg-amber-50">
-                <i class="mdi mdi-keyboard-return mr-1"></i> Devolução
+              <Badge v-if="pedido.tipo === 'D' || pedido.pedido_origem_id" variant="outline" class="border-amber-400 text-amber-900 bg-amber-50 font-bold px-2.5 py-0.5 shadow-xs text-xs">
+                <i class="mdi mdi-keyboard-return mr-1 text-amber-600"></i>
+                Devolução ref. ao Pedido #{{ pedido.pedido_origem_id || extrairPedidoRef(pedido) }}
+              </Badge>
+              <Badge v-else-if="pedido.tem_devolucao" variant="outline" class="border-amber-500 text-amber-700 bg-amber-50">
+                <i class="mdi mdi-keyboard-return mr-1"></i> Possui Devoluções
               </Badge>
             </div>
             <div class="text-sm text-muted-foreground">
@@ -231,9 +236,9 @@
             </div>
 
             <!-- Observação -->
-            <div v-if="pedido.observacao" class="text-sm bg-muted/50 p-2 rounded">
+            <div v-if="extrairObservacaoLimpa(pedido.observacao)" class="text-sm bg-muted/50 p-2 rounded">
               <span class="text-muted-foreground font-medium">Obs:</span>
-              <span class="ml-1 text-slate-700">{{ pedido.observacao }}</span>
+              <span class="ml-1 text-slate-700">{{ extrairObservacaoLimpa(pedido.observacao) }}</span>
             </div>
 
             <!-- Expandir detalhes -->
@@ -259,61 +264,81 @@
               v-if="expanded[pedido.id] && pedido.itens"
               class="border-t pt-3 mt-2"
             >
-              <div class="space-y-2">
-                <div
-                  v-for="item in pedido.itens"
-                  :key="item.id"
-                  class="flex items-center justify-between text-sm p-2.5 bg-muted/60 rounded border border-muted"
-                >
-                  <div>
-                    <span class="font-medium text-slate-900">
-                      {{ item.produto?.nome || `Produto #${item.produto_id}` }}
-                    </span>
-                    <span v-if="item.produto?.marca" class="text-xs text-muted-foreground ml-2">
-                      ({{ item.produto.marca }})
-                    </span>
-                  </div>
-                    <div class="flex items-center gap-4 text-xs font-medium">
-                      <span class="text-slate-600 bg-slate-200/70 px-2 py-0.5 rounded">
-                        Solicitado: {{ item.quantidade_solicitada }}
-                      </span>
-                      <span
-                        v-if="item.quantidade_liberada > 0"
-                        class="text-green-700 bg-green-100 px-2 py-0.5 rounded"
-                      >
-                        Liberado: {{ item.quantidade_liberada }}
-                      </span>
-                      <span
-                        v-if="calcularQtdDevolvida(pedido, item.id) > 0"
-                        class="text-amber-700 bg-amber-100 px-2 py-0.5 rounded"
-                      >
-                        Devolvido: {{ calcularQtdDevolvida(pedido, item.id) }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-xs">
+                <table class="w-full text-xs text-left">
+                  <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
+                    <tr>
+                      <th class="py-2.5 px-3">Produto / Medicamento</th>
+                      <th class="py-2.5 px-3 text-center">Lote</th>
+                      <th class="py-2.5 px-3 text-center">Validade</th>
+                      <th class="py-2.5 px-3 text-right">Qtd Solicitada</th>
+                      <th class="py-2.5 px-3 text-right">Qtd Atendida</th>
+                      <th v-if="pedido.status_solicitacao === 'A'" class="py-2.5 px-3 text-right">Qtd Devolvida</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    <tr v-for="item in pedido.itens" :key="item.id" class="hover:bg-slate-50/70 transition-colors">
+                      <td class="py-2.5 px-3 font-medium text-slate-900">
+                        {{ item.produto?.nome || `Produto #${item.produto_id}` }}
+                        <span v-if="item.produto?.marca" class="text-[11px] text-slate-500 font-normal ml-1">
+                          ({{ item.produto.marca }})
+                        </span>
+                      </td>
+                      <td class="py-2.5 px-3 text-center font-mono">
+                        <span v-if="formatarItemLote(item) !== '-'" class="px-2 py-0.5 rounded bg-slate-100 text-slate-800 text-[11px] font-semibold">
+                          {{ formatarItemLote(item) }}
+                        </span>
+                        <span v-else class="text-slate-400">-</span>
+                      </td>
+                      <td class="py-2.5 px-3 text-center text-slate-600">
+                        {{ formatarItemValidade(item) }}
+                      </td>
+                      <td class="py-2.5 px-3 text-right text-slate-700 font-medium">
+                        {{ item.quantidade_solicitada }}
+                      </td>
+                      <td class="py-2.5 px-3 text-right">
+                        <span v-if="Number(item.quantidade_liberada) > 0" class="text-emerald-700 font-semibold">
+                          {{ item.quantidade_liberada }}
+                        </span>
+                        <span v-else class="text-slate-400">-</span>
+                      </td>
+                      <td v-if="pedido.status_solicitacao === 'A'" class="py-2.5 px-3 text-right">
+                        <span
+                          v-if="calcularQtdDevolvida(pedido, item) > 0"
+                          class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300"
+                        >
+                          {{ calcularQtdDevolvida(pedido, item) }} un devolvidas
+                        </span>
+                        <span v-else class="text-slate-400 font-normal">-</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-                <!-- Histórico de Devoluções do Pedido -->
-                <div v-if="pedido.devolucoes && pedido.devolucoes.length > 0" class="mt-4 border border-amber-200 bg-amber-50/30 rounded-md p-3">
-                  <h4 class="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-1">
-                    <i class="mdi mdi-history"></i> Histórico de Devoluções
-                  </h4>
-                  <div class="space-y-1.5">
-                    <div v-for="dev in pedido.devolucoes" :key="dev.id" class="text-xs text-slate-700 flex flex-wrap gap-x-3 gap-y-1 items-center bg-white border border-amber-100 p-2 rounded">
-                      <span class="font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-200">
-                        Devolução referente ao Pedido #{{ dev.numero_pedido || dev.pedido_origem_id || dev.pedido_id || pedido.id }}
-                      </span>
-                      <span><strong>Item:</strong> {{ pedido.itens?.find(i => i.id === dev.item_movimentacao_id)?.produto?.nome || 'Item #' + dev.item_movimentacao_id }}</span>
-                      <span><strong>Lote:</strong> <span class="bg-amber-100 px-1 py-0.5 rounded">{{ dev.lote }}</span></span>
-                      <span><strong>Qtd:</strong> <span class="text-amber-700 font-bold">{{ dev.quantidade }}</span></span>
-                      <span><strong>Data:</strong> {{ formatDate(dev.created_at) }}</span>
-                      <span v-if="dev.usuario" class="text-muted-foreground"><strong>Por:</strong> {{ dev.usuario.name }}</span>
-                      <span v-if="dev.motivo" class="w-full text-slate-500 italic mt-1 break-words">"{{ dev.motivo }}"</span>
+              <!-- Histórico de Devoluções do Pedido -->
+              <div v-if="pedido.devolucoes && pedido.devolucoes.length > 0" class="mt-4 border border-amber-200 bg-amber-50/40 rounded-lg p-3">
+                <h4 class="text-xs font-bold text-amber-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <i class="mdi mdi-history text-amber-700 text-sm"></i> Histórico de Devoluções Registradas
+                </h4>
+                <div class="space-y-2">
+                  <div v-for="dev in pedido.devolucoes" :key="dev.id" class="text-xs text-slate-700 flex flex-wrap gap-x-3 gap-y-1.5 items-center bg-white border border-amber-200 p-2.5 rounded-md shadow-xs">
+                    <Badge variant="outline" class="font-bold text-amber-900 bg-amber-100 border-amber-300">
+                      Devolução ref. ao Pedido #{{ dev.numero_pedido || dev.pedido_origem_id || dev.pedido_id || pedido.id }}
+                    </Badge>
+                    <span><strong>Item:</strong> {{ pedido.itens?.find(i => i.id === dev.item_movimentacao_id)?.produto?.nome || 'Item #' + dev.item_movimentacao_id }}</span>
+                    <span><strong>Lote:</strong> <span class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono font-medium">{{ dev.lote }}</span></span>
+                    <span><strong>Qtd:</strong> <span class="text-amber-800 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">{{ dev.quantidade }} un</span></span>
+                    <span class="text-slate-500"><strong>Data:</strong> {{ formatDate(dev.created_at) }}</span>
+                    <span v-if="dev.usuario" class="text-muted-foreground"><strong>Por:</strong> {{ dev.usuario.name }}</span>
+                    <div v-if="dev.motivo" class="w-full text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-200 text-xs mt-1">
+                      <span class="font-semibold text-slate-700">Motivo:</span> {{ dev.motivo }}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -427,8 +452,67 @@ const formatDate = (dateString) => {
   });
 };
 
-const calcularQtdDevolvida = (mov, itemId) => {
-  if (!mov.devolucoes || mov.devolucoes.length === 0) return 0;
+const extrairObservacaoLimpa = (obs) => {
+  if (!obs) return "";
+  return obs.replace(/\[?Devoluç[aã]o\s+ref(\.|erente\s+ao)?\s+Pedido\s*#?\d+\]?[:\s-]*/i, "").trim();
+};
+
+const extrairPedidoRef = (pedido) => {
+  if (pedido.pedido_origem_id) return pedido.pedido_origem_id;
+  if (pedido.observacao) {
+    const match = pedido.observacao.match(/Pedido\s*#?(\d+)/i);
+    if (match) return match[1];
+  }
+  return pedido.numero_pedido || pedido.id;
+};
+
+const formatarItemLote = (item) => {
+  if (item.numero_lote) return item.numero_lote;
+  if (!item.lote) return "-";
+  if (typeof item.lote === "string") {
+    try {
+      const parsed = JSON.parse(item.lote);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((l) => l.numero_lote || l.lote).filter(Boolean).join(", ") || "-";
+      }
+      if (parsed && (parsed.numero_lote || parsed.lote)) {
+        return parsed.numero_lote || parsed.lote;
+      }
+    } catch (e) {
+      return item.lote;
+    }
+  }
+  if (Array.isArray(item.lotes_parsed) && item.lotes_parsed.length > 0) {
+    return item.lotes_parsed.map((l) => l.numero_lote || l.lote).filter(Boolean).join(", ");
+  }
+  return String(item.lote || "-");
+};
+
+const formatarItemValidade = (item) => {
+  if (item.validade) return item.validade;
+  if (Array.isArray(item.lotes_parsed) && item.lotes_parsed[0]?.validade) {
+    return item.lotes_parsed[0].validade;
+  }
+  if (typeof item.lote === "string") {
+    try {
+      const parsed = JSON.parse(item.lote);
+      if (Array.isArray(parsed) && parsed[0]?.validade) {
+        return parsed[0].validade;
+      }
+    } catch (e) {
+      return "-";
+    }
+  }
+  return "-";
+};
+
+const calcularQtdDevolvida = (mov, item) => {
+  if (item && item.quantidade_devolvida !== undefined && item.quantidade_devolvida !== null) {
+    const val = Number(item.quantidade_devolvida);
+    if (val > 0) return val;
+  }
+  const itemId = typeof item === "object" ? item.id : item;
+  if (!mov?.devolucoes || mov.devolucoes.length === 0) return 0;
   let total = 0;
   for (let d of mov.devolucoes) {
     if (d.item_movimentacao_id === itemId) {

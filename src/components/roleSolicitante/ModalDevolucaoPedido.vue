@@ -31,8 +31,8 @@
                   <td class="px-4 py-3 font-medium text-slate-900">
                     {{ item.nome }}
                   </td>
-                  <td class="px-4 py-3 text-center text-xs text-slate-500">
-                    {{ formatarLote(item.loteStr) }}
+                  <td class="px-4 py-3 text-center text-xs text-slate-500 font-mono font-medium">
+                    {{ formatarLote(item.loteStr, item.lotesParsed) }}
                   </td>
                   <td class="px-4 py-3 text-center font-bold text-emerald-600">
                     {{ item.quantidade_liberada }}
@@ -130,7 +130,8 @@ watch(() => props.movimentacao, (newMov) => {
     itensParaDevolver.value = (newMov.itens || []).map(item => ({
       item_movimentacao_id: item.id,
       nome: item.produto?.nome || `Produto #${item.produto_id}`,
-      loteStr: item.lote,
+      loteStr: item.numero_lote || item.lote,
+      lotesParsed: item.lotes_parsed,
       quantidade_liberada: Number(item.quantidade_liberada),
       quantidade_devolvendo: 0
     }));
@@ -152,17 +153,25 @@ const erroZero = computed(() => {
   return itensParaDevolver.value.every(item => Number(item.quantidade_devolvendo) <= 0);
 });
 
-const formatarLote = (loteStr) => {
+const formatarLote = (loteStr, lotesParsed) => {
+  if (Array.isArray(lotesParsed) && lotesParsed.length > 0) {
+    return lotesParsed.map((l) => l.numero_lote || l.lote).filter(Boolean).join(", ") || "—";
+  }
   if (!loteStr) return "—";
+  if (typeof loteStr === "object") {
+    return Array.isArray(loteStr)
+      ? loteStr.map((l) => l.numero_lote || l.lote).join(", ")
+      : (loteStr.numero_lote || loteStr.lote || "—");
+  }
   try {
     const lotes = JSON.parse(loteStr);
     if (Array.isArray(lotes)) {
-      return lotes.map((l) => `${l.lote}`).join(", ");
+      return lotes.map((l) => `${l.numero_lote || l.lote}`).join(", ");
     }
   } catch (e) {
-    //
+    // string simples de lote
   }
-  return loteStr;
+  return String(loteStr);
 };
 
 const confirmarDevolucao = async () => {

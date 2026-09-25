@@ -54,6 +54,7 @@ import {
   FileSpreadsheetIcon,
   ChevronRightIcon,
   RotateCcwIcon,
+  ArrowRightIcon,
 } from "lucide-vue-next";
 import ModalNovaMovimentacao from "@/components/cadastros/ModalNovaMovimentacao.vue";
 import ModalDevolucaoPedido from "@/components/roleSolicitante/ModalDevolucaoPedido.vue";
@@ -364,6 +365,13 @@ const formatarHora = (data) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const formatarSetorComPolo = (setor) => {
+  if (!setor) return "—";
+  const nome = setor.nome_exibicao || setor.nome || "Setor";
+  const siglaPolo = setor.polo?.sigla || setor.polo?.nome || null;
+  return siglaPolo ? `${nome} (${siglaPolo})` : nome;
 };
 
 const getStatusBadge = (status) => {
@@ -785,7 +793,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
         <table class="w-full text-sm">
           <thead class="bg-slate-50 border-b">
             <tr>
-              <th class="py-4 px-3 text-left font-bold text-slate-500 uppercase text-[10px]">#ID</th>
+              <th class="py-4 px-4 text-center font-bold text-slate-500 uppercase text-[10px]">ID Pedido</th>
               <th class="py-4 px-6 text-left font-bold text-slate-500 uppercase text-[10px]">Fluxo</th>
               <th
                 @click="handleSort('created_at')"
@@ -831,9 +839,11 @@ const calcularQtdDevolvida = (mov, itemId) => {
                 'hover:bg-slate-50'
               ]"
             >
-              <!-- Coluna #ID -->
-              <td class="py-4 px-3 text-center">
-                <span class="text-[11px] font-black text-slate-400">#{{ mov.id }}</span>
+              <!-- Coluna ID Pedido Destacada -->
+              <td class="py-4 px-4 text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded font-mono text-xs font-black bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs">
+                  #{{ mov.numero_pedido || mov.id }}
+                </span>
               </td>
               <td :class="[
                 'py-4 px-6 border-l-[6px]',
@@ -849,16 +859,35 @@ const calcularQtdDevolvida = (mov, itemId) => {
                     class="w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200"
                     :class="{ 'rotate-90 text-primary': expandedRows[mov.id] }"
                   />
-                  <!-- Padrão Hospitalar: Devolução ao Distribuidor 📤 / Devolução Recebida 📥 -->
+                  <!-- Nomenclatura Padrão Hospitalar: Devolução ao Distribuidor 📤 / Devolução Recebida 📥 -->
                   <div
                     v-if="mov.tipo === 'D'"
-                    class="flex items-center gap-2 text-amber-600 font-bold"
+                    class="flex items-center gap-1.5 flex-wrap"
                   >
-                    <span v-if="isEntrada(mov)" class="text-base leading-none">📥</span>
-                    <span v-else class="text-base leading-none">📤</span>
-                    <span class="text-[11px] uppercase">{{ isEntrada(mov) ? 'Devolução Recebida' : 'Devolução ao Distribuidor' }}</span>
-                    <span v-if="mov.numero_pedido || mov.pedido_origem_id" class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold border border-amber-200">
-                      Ref. Pedido #{{ mov.numero_pedido || mov.pedido_origem_id }}
+                    <!-- Devolução Recebida (quando o setor atual recebe de volta) -->
+                    <span
+                      v-if="isEntrada(mov)"
+                      class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs"
+                    >
+                      <span class="text-sm leading-none">📥</span>
+                      <span>Devolução Recebida</span>
+                    </span>
+
+                    <!-- Devolução ao Distribuidor (quando o setor atual devolve) -->
+                    <span
+                      v-else
+                      class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs"
+                    >
+                      <span class="text-sm leading-none">📤</span>
+                      <span>Devolução ao Distribuidor</span>
+                    </span>
+
+                    <!-- Badge destacada de referência ao pedido -->
+                    <span
+                      v-if="mov.pedido_origem_id || (mov.numero_pedido && mov.numero_pedido !== mov.id)"
+                      class="inline-flex items-center text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold border border-slate-200"
+                    >
+                      Ref. Pedido #{{ mov.pedido_origem_id || mov.numero_pedido }}
                     </span>
                   </div>
                   <div
@@ -1092,34 +1121,39 @@ const calcularQtdDevolvida = (mov, itemId) => {
                       <thead class="bg-slate-100/70 border-b border-slate-200">
                         <tr>
                           <th
-                            class="py-2.5 px-5 text-left font-bold text-slate-400 text-[10px] uppercase tracking-wider"
+                            class="py-2.5 px-5 text-left font-bold text-slate-500 text-[10px] uppercase tracking-wider"
                           >
                             Produto
                           </th>
                           <th
-                            class="py-2.5 px-5 text-left font-bold text-slate-400 text-[10px] uppercase tracking-wider"
+                            class="py-2.5 px-5 text-left font-bold text-slate-500 text-[10px] uppercase tracking-wider"
                           >
-                            Lote(s)
+                            Lote
                           </th>
                           <th
-                            class="py-2.5 px-5 text-center font-bold text-slate-400 text-[10px] uppercase tracking-wider"
+                            class="py-2.5 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider"
+                          >
+                            Validade
+                          </th>
+                          <th
+                            class="py-2.5 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider"
                           >
                             Qtd. Solicitada
                           </th>
                           <th
-                            class="py-2.5 px-5 text-center font-bold text-slate-400 text-[10px] uppercase tracking-wider"
+                            class="py-2.5 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider"
                           >
-                            Qtd. Liberada
+                            Qtd. Atendida
                           </th>
                           <th
                             v-if="mov.tipo === 'D'"
-                            class="py-2.5 px-5 text-center font-bold text-slate-400 text-[10px] uppercase tracking-wider"
+                            class="py-2.5 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider"
                           >
                             Qtd. Devolvendo
                           </th>
                           <th
-                            v-if="mov.tipo !== 'D' && isEntrada(mov) && mov.status_solicitacao === 'A'"
-                            class="py-2.5 px-5 text-center font-bold text-slate-400 text-[10px] uppercase tracking-wider"
+                            v-if="mov.status_solicitacao === 'A' && mov.tipo !== 'D'"
+                            class="py-2.5 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider"
                           >
                             Qtd. Devolvida
                           </th>
@@ -1128,7 +1162,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
                       <tbody class="divide-y divide-slate-100">
                         <tr v-if="!mov.itens || mov.itens.length === 0">
                           <td
-                            :colspan="4 + (mov.tipo === 'D' ? 1 : 0) + (isEntrada(mov) && mov.status_solicitacao === 'A' ? 2 : 0)"
+                            :colspan="5 + (mov.tipo === 'D' || (mov.status_solicitacao === 'A' && mov.tipo !== 'D') ? 1 : 0)"
                             class="py-6 text-center text-slate-400 italic text-xs"
                           >
                             Nenhum item nesta requisição.
@@ -1144,25 +1178,37 @@ const calcularQtdDevolvida = (mov, itemId) => {
                               item.produto?.nome || `Produto #${item.produto_id}`
                             }}
                           </td>
-                          <!-- Lotes: renderiza pills individuais quando há lotes_parsed -->
+                          <!-- Lote: restaura exibição de lotes_parsed, item.lote, mov.lote -->
                           <td class="py-3 px-5">
                             <div v-if="item.lotes_parsed && item.lotes_parsed.length > 0" class="flex flex-wrap gap-1">
                               <span
                                 v-for="(lp, li) in item.lotes_parsed"
                                 :key="li"
-                                class="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded font-mono"
+                                class="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded font-mono font-medium"
                               >
-                                {{ lp.lote }}<span v-if="lp.qtd" class="font-black text-slate-800">&times;{{ lp.qtd }}</span>
+                                {{ lp.lote }}<span v-if="lp.qtd" class="font-bold text-slate-900">&times;{{ lp.qtd }}</span>
                               </span>
                             </div>
-                            <span v-else class="text-xs text-slate-300">—</span>
+                            <span v-else-if="item.numero_lote || item.lote || mov.lote" class="inline-flex items-center text-[11px] font-mono font-medium text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                              {{ item.numero_lote || item.lote || mov.lote }}
+                            </span>
+                            <span v-else class="text-xs text-slate-400 font-mono">-</span>
                           </td>
-                          <td class="py-3 px-5 text-center">
+                          <td class="py-3 px-4 text-center">
+                            <span v-if="item.validade" class="text-xs font-mono text-slate-600 font-medium">
+                              {{ item.validade }}
+                            </span>
+                            <span v-else-if="item.lotes_parsed?.[0]?.data_vencimento" class="text-xs font-mono text-slate-600 font-medium">
+                              {{ formatarData(item.lotes_parsed[0].data_vencimento) }}
+                            </span>
+                            <span v-else class="text-xs text-slate-300 font-mono">-</span>
+                          </td>
+                          <td class="py-3 px-4 text-center">
                             <Badge variant="secondary" class="font-black">{{
                               parseInt(item.quantidade_solicitada) || 0
                             }}</Badge>
                           </td>
-                          <td class="py-3 px-5 text-center">
+                          <td class="py-3 px-4 text-center">
                             <Badge
                               v-if="item.quantidade_liberada > 0"
                               class="font-black bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
@@ -1176,20 +1222,21 @@ const calcularQtdDevolvida = (mov, itemId) => {
                           </td>
                           <td
                             v-if="mov.tipo === 'D'"
-                            class="py-3 px-5 text-center font-bold text-amber-600"
+                            class="py-3 px-4 text-center font-bold text-amber-600"
                           >
-                            {{ parseInt(item.quantidade_devolvendo) || 0 }}
+                            {{ parseInt(item.quantidade_devolvendo || item.quantidade_liberada) || 0 }}
                           </td>
+                          <!-- Coluna Qtd. Devolvida em pedidos atendidos (permanente) -->
                           <td
-                            v-if="mov.tipo !== 'D' && isEntrada(mov) && mov.status_solicitacao === 'A'"
-                            class="py-3 px-5 text-center"
+                            v-if="mov.status_solicitacao === 'A' && mov.tipo !== 'D'"
+                            class="py-3 px-4 text-center"
                           >
                             <Badge
-                              v-if="calcularQtdDevolvida(mov, item.id) > 0"
-                              class="font-black bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100"
-                              >{{ parseInt(calcularQtdDevolvida(mov, item.id)) || 0 }}</Badge
+                              v-if="Number(item.quantidade_devolvida || calcularQtdDevolvida(mov, item.id)) > 0"
+                              class="font-black bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100"
+                              >{{ parseInt(item.quantidade_devolvida || calcularQtdDevolvida(mov, item.id)) }} un devolvidas</Badge
                             >
-                            <span v-else class="text-slate-300 font-bold italic text-xs">—</span>
+                            <span v-else class="text-slate-300 font-mono font-bold text-xs">-</span>
                           </td>
                         </tr>
                       </tbody>
@@ -1244,181 +1291,311 @@ const calcularQtdDevolvida = (mov, itemId) => {
       @registrado="() => location.reload()"
     />
 
-    <!-- Details View -->
+    <!-- Details View: Redesign em 4 Blocos Estruturados (Padrão Hospitalar) -->
     <Dialog v-model:open="dialogDetalhesOpen">
       <DialogContent
-        class="max-w-3xl border-none p-0 overflow-hidden bg-slate-50"
+        class="max-w-4xl border-none p-0 overflow-hidden bg-slate-50 shadow-2xl rounded-3xl"
       >
-        <div class="bg-primary p-6 text-white">
-          <div class="flex items-center justify-between">
-            <div class="space-y-1">
-              <h2 class="text-xl font-black uppercase tracking-tighter">
-                Detalhes da Movimentação
-              </h2>
+        <!-- BLOCO 1: Cabeçalho com Número do Pedido, Tipo Hospitalar e Status -->
+        <div class="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-800 p-6 text-white border-b border-slate-700/60">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="space-y-1.5">
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <span class="text-2xl font-black tracking-tight text-white">
+                  Pedido #{{ movimentacaoSelecionada?.numero_pedido || movimentacaoSelecionada?.id }}
+                </span>
+
+                <!-- Badge de Tipo Hospitalar -->
+                <span
+                  v-if="movimentacaoSelecionada?.tipo === 'D'"
+                  :class="isEntrada(movimentacaoSelecionada) ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-amber-500/20 text-amber-300 border-amber-500/40'"
+                  class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border"
+                >
+                  <span class="text-sm leading-none">{{ isEntrada(movimentacaoSelecionada) ? '📥' : '📤' }}</span>
+                  <span>{{ isEntrada(movimentacaoSelecionada) ? 'Devolução Recebida' : 'Devolução ao Distribuidor' }}</span>
+                </span>
+                <span
+                  v-else-if="movimentacaoSelecionada?.tipo === 'C'"
+                  class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40"
+                >
+                  Consumo Interno
+                </span>
+                <span
+                  v-else-if="isEntrada(movimentacaoSelecionada)"
+                  class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                >
+                  <ArrowDownCircleIcon class="w-3.5 h-3.5" /> Entrada
+                </span>
+                <span
+                  v-else
+                  class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                >
+                  <ArrowUpCircleIcon class="w-3.5 h-3.5" /> Saída / Transferência
+                </span>
+
+                <!-- Badge de Status -->
+                <Badge
+                  variant="outline"
+                  :class="[
+                    'text-xs font-black uppercase tracking-wider px-2.5 py-0.5 border shadow-xs',
+                    movimentacaoSelecionada?.status_solicitacao === 'A' ? 'bg-emerald-500 text-white border-emerald-400' :
+                    movimentacaoSelecionada?.status_solicitacao === 'R' ? 'bg-rose-500 text-white border-rose-400' :
+                    movimentacaoSelecionada?.status_solicitacao === 'P' ? 'bg-amber-500 text-white border-amber-400' :
+                    movimentacaoSelecionada?.status_solicitacao === 'C' ? 'bg-blue-500 text-white border-blue-400' :
+                    'bg-slate-700 text-slate-200 border-slate-600'
+                  ]"
+                >
+                  {{ getStatusBadge(movimentacaoSelecionada?.status_solicitacao).label }}
+                </Badge>
+              </div>
+
+              <!-- Referência ao Pedido de Origem quando Devolução -->
               <p
-                class="text-primary-foreground/80 text-xs flex items-center gap-1 font-bold"
+                v-if="movimentacaoSelecionada?.tipo === 'D' && (movimentacaoSelecionada?.pedido_origem_id || (movimentacaoSelecionada?.numero_pedido && movimentacaoSelecionada?.numero_pedido !== movimentacaoSelecionada?.id))"
+                class="text-xs text-amber-300 font-medium flex items-center gap-1.5"
               >
-                #{{ movimentacaoSelecionada?.id }} â€¢
-                {{ formatarData(movimentacaoSelecionada?.created_at) }}
+                <RotateCcwIcon class="w-3.5 h-3.5 text-amber-400" />
+                Devolução ref. ao Pedido #{{ movimentacaoSelecionada?.pedido_origem_id || movimentacaoSelecionada?.numero_pedido }}
               </p>
             </div>
-            <div class="flex items-center gap-3">
+
+            <!-- Ações: Imprimir e Excel -->
+            <div class="flex items-center gap-2 shrink-0">
               <Button
                 variant="outline"
                 size="sm"
-                class="gap-2 bg-white/10 text-white border-white/40 hover:bg-white/20 hover:text-white font-bold"
+                class="gap-1.5 bg-white/10 text-white border-white/20 hover:bg-white/20 hover:text-white text-xs font-bold"
                 @click="imprimir(movimentacaoSelecionada)"
               >
-                <PrinterIcon class="w-4 h-4" /> Imprimir
+                <PrinterIcon class="w-3.5 h-3.5" /> Imprimir
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                class="gap-2 bg-white/10 text-white border-white/40 hover:bg-white/20 hover:text-white font-bold"
+                class="gap-1.5 bg-white/10 text-white border-white/20 hover:bg-white/20 hover:text-white text-xs font-bold"
                 @click="exportarExcel(movimentacaoSelecionada)"
               >
-                <FileSpreadsheetIcon class="w-4 h-4" /> Excel
+                <FileSpreadsheetIcon class="w-3.5 h-3.5 text-emerald-400" /> Excel
               </Button>
-              <Badge
-                variant="outline"
-                class="bg-white/20 text-white border-white/40 font-black"
-              >
-                {{
-                  getStatusBadge(movimentacaoSelecionada?.status_solicitacao)
-                    .label
-                }}
-              </Badge>
             </div>
           </div>
         </div>
 
-        <div class="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-4 p-4 bg-white rounded-2xl border shadow-sm">
-              <div
-                class="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest"
-              >
-                <ArrowUpCircleIcon class="w-4 h-4" /> Origem / Fornecedor
+        <div class="p-6 sm:p-8 space-y-6 max-h-[75vh] overflow-y-auto">
+          <!-- BLOCO 2: Rota Estruturada -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+            <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <ArrowLeftRightIcon class="w-3.5 h-3.5 text-slate-500" />
+              Rota Estruturada
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-[1fr,auto,1fr] items-center gap-4">
+              <!-- Origem -->
+              <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3">
+                <div class="p-2 rounded-lg bg-indigo-50 text-indigo-600 shrink-0 mt-0.5">
+                  <ArrowUpCircleIcon class="w-4 h-4" />
+                </div>
+                <div class="min-w-0">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Origem</span>
+                  <p class="text-sm font-black text-slate-900 truncate">
+                    {{ formatarSetorComPolo(movimentacaoSelecionada?.setor_origem || movimentacaoSelecionada?.setorOrigem) }}
+                  </p>
+                </div>
               </div>
-              <div class="space-y-1">
-                <p class="text-lg font-black text-slate-900 leading-tight">
-                  {{ movimentacaoSelecionada?.setor_origem?.nome_exibicao || movimentacaoSelecionada?.setor_origem?.nome || "-" }}
+
+              <!-- Seta Rota -->
+              <div class="hidden sm:flex items-center justify-center p-2 rounded-full bg-slate-100 text-slate-400">
+                <ArrowRightIcon class="w-4 h-4" />
+              </div>
+
+              <!-- Destino -->
+              <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3">
+                <div class="p-2 rounded-lg bg-emerald-50 text-emerald-600 shrink-0 mt-0.5">
+                  <ArrowDownCircleIcon class="w-4 h-4" />
+                </div>
+                <div class="min-w-0">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Destino</span>
+                  <p class="text-sm font-black text-slate-900 truncate">
+                    {{ formatarSetorComPolo(movimentacaoSelecionada?.setor_destino || movimentacaoSelecionada?.setorDestino) }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- BLOCO 3: Auditoria / Responsáveis -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+            <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <CheckCircle2Icon class="w-3.5 h-3.5 text-slate-500" />
+              Auditoria / Responsáveis
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Solicitado por -->
+              <div class="p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 space-y-1">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <UserIcon class="w-3 h-3 text-slate-400" />
+                  Solicitado por
+                </span>
+                <p class="text-sm font-bold text-slate-800">
+                  {{ movimentacaoSelecionada?.usuario?.name || "Sistema" }}
                 </p>
                 <p class="text-xs text-slate-500 flex items-center gap-1">
-                  <UserIcon class="w-3 h-3" /> Setor de Origem (Fornecedor)
+                  <CalendarIcon class="w-3 h-3" />
+                  {{ formatarData(movimentacaoSelecionada?.data_hora || movimentacaoSelecionada?.created_at) }}
+                  <span v-if="movimentacaoSelecionada?.data_hora || movimentacaoSelecionada?.created_at">
+                    às {{ formatarHora(movimentacaoSelecionada?.data_hora || movimentacaoSelecionada?.created_at) }}
+                  </span>
                 </p>
+              </div>
+
+              <!-- Respondido / Avaliado por -->
+              <div class="p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 space-y-1">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckCircle2Icon class="w-3 h-3 text-emerald-500" />
+                  Respondido / Avaliado por
+                </span>
+                <template v-if="movimentacaoSelecionada?.aprovador || ['A', 'R'].includes(movimentacaoSelecionada?.status_solicitacao)">
+                  <p class="text-sm font-bold text-slate-800">
+                    {{ movimentacaoSelecionada?.aprovador?.name || movimentacaoSelecionada?.respondido_por?.name || "Avaliador Autorizado" }}
+                  </p>
+                  <p class="text-xs text-slate-500 flex items-center gap-1">
+                    <CalendarIcon class="w-3 h-3" />
+                    {{ formatarData(movimentacaoSelecionada?.updated_at) }} às {{ formatarHora(movimentacaoSelecionada?.updated_at) }}
+                  </p>
+                </template>
+                <template v-else>
+                  <p class="text-sm font-medium text-slate-400 italic">Pendente de avaliação</p>
+                  <p class="text-xs text-slate-400">—</p>
+                </template>
               </div>
             </div>
 
+            <!-- Observações se houver -->
             <div
-              class="space-y-4 p-4 bg-white rounded-2xl border shadow-sm border-emerald-100"
+              v-if="movimentacaoSelecionada?.observacao"
+              class="mt-3.5 p-3 rounded-xl bg-amber-50/60 border border-amber-200/60 text-amber-900 text-xs flex items-start gap-2"
             >
-              <div
-                class="flex items-center gap-2 text-emerald-500 font-bold text-[10px] uppercase tracking-widest"
-              >
-                <ArrowDownCircleIcon class="w-4 h-4" /> Destino / Solicitante
-              </div>
-              <div class="space-y-1">
-                <p class="text-lg font-black text-slate-900 leading-tight">
-                  {{ movimentacaoSelecionada?.setor_destino?.nome_exibicao || movimentacaoSelecionada?.setor_destino?.nome || "-" }}
-                </p>
-                <p class="text-xs text-slate-500 flex items-center gap-1">
-                  <UserIcon class="w-3 h-3" /> Responsável pela solicitação:
-                  <strong class="text-slate-700 ml-1">{{ movimentacaoSelecionada?.usuario?.name || "N/A" }}</strong>
-                </p>
+              <FileTextIcon class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <strong class="font-bold">Observações / Motivo:</strong>
+                <span class="ml-1 italic text-slate-700">"{{ movimentacaoSelecionada.observacao }}"</span>
               </div>
             </div>
           </div>
 
-          <div
-            v-if="movimentacaoSelecionada?.tipo === 'D' && (movimentacaoSelecionada?.numero_pedido || movimentacaoSelecionada?.pedido_origem_id)"
-            class="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 font-bold text-sm flex items-center gap-2"
-          >
-            <RotateCcwIcon class="w-4 h-4 text-amber-600" />
-            <span>Devolução referente ao Pedido #{{ movimentacaoSelecionada?.numero_pedido || movimentacaoSelecionada?.pedido_origem_id }}</span>
-          </div>
-
-          <div
-            v-if="movimentacaoSelecionada?.observacao"
-            class="p-4 bg-amber-50 rounded-2xl border border-amber-100 italic text-amber-800 text-sm"
-          >
-            <p class="font-bold flex items-center gap-2 mb-1">
-              <FileTextIcon class="w-4 h-4" /> Notas do Solicitante:
-            </p>
-            "{{ movimentacaoSelecionada?.observacao }}"
-          </div>
-
-          <!-- Card do aprovador/responsável pela resposta -->
-          <div
-            v-if="movimentacaoSelecionada?.aprovador || ['A','R'].includes(movimentacaoSelecionada?.status_solicitacao)"
-            class="p-4 rounded-2xl border shadow-sm"
-            :class="movimentacaoSelecionada?.status_solicitacao === 'A' ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'"
-          >
-            <p class="font-bold flex items-center gap-2 mb-1 text-xs uppercase tracking-widest"
-               :class="movimentacaoSelecionada?.status_solicitacao === 'A' ? 'text-emerald-600' : 'text-rose-600'">
-              <CheckCircle2Icon v-if="movimentacaoSelecionada?.status_solicitacao === 'A'" class="w-4 h-4" />
-              <XCircleIcon v-else class="w-4 h-4" />
-              {{ movimentacaoSelecionada?.status_solicitacao === 'A' ? 'Aprovado por' : 'Reprovado por' }}
-            </p>
-            <p class="text-sm font-semibold text-slate-800">
-              {{ movimentacaoSelecionada?.aprovador?.name || 'N/A' }}
-            </p>
-          </div>
-
-          <div class="space-y-4">
-            <h3
-              class="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"
-            >
-              <FileTextIcon class="w-4 h-4" /> Itens Solicitados
-            </h3>
-            <div class="bg-white border rounded-2xl overflow-hidden shadow-sm">
+          <!-- BLOCO 4: Tabela de Itens Alinhada -->
+          <div class="space-y-3">
+            <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+              <FileTextIcon class="w-3.5 h-3.5 text-slate-500" />
+              Tabela de Itens
+            </h4>
+            <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
               <table class="w-full text-sm">
-                <thead class="bg-slate-50 border-b">
+                <thead class="bg-slate-50/90 border-b border-slate-200">
                   <tr>
-                    <th class="py-3 px-6 text-left font-bold text-slate-400 text-[10px]">Item</th>
-                    <th class="py-3 px-6 text-left font-bold text-slate-400 text-[10px]">Lote(s)</th>
-                    <th class="py-3 px-6 text-center font-bold text-slate-400 text-[10px]">Solicitada</th>
-                    <th class="py-3 px-6 text-center font-bold text-slate-400 text-[10px]">Liberada</th>
+                    <th class="py-3 px-5 text-left font-bold text-slate-500 text-[10px] uppercase tracking-wider">
+                      Produto/Medicamento
+                    </th>
+                    <th class="py-3 px-4 text-left font-bold text-slate-500 text-[10px] uppercase tracking-wider">
+                      Lote
+                    </th>
+                    <th class="py-3 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider">
+                      Validade
+                    </th>
+                    <th class="py-3 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider">
+                      Qtd Solicitada
+                    </th>
+                    <th class="py-3 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider">
+                      Qtd Atendida
+                    </th>
+                    <th class="py-3 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider">
+                      Qtd Devolvida
+                    </th>
                   </tr>
                 </thead>
-                <tbody class="divide-y">
+                <tbody class="divide-y divide-slate-100">
+                  <tr v-if="!movimentacaoSelecionada?.itens || movimentacaoSelecionada?.itens.length === 0">
+                    <td colspan="6" class="py-6 text-center text-slate-400 italic text-xs">
+                      Nenhum item nesta movimentação.
+                    </td>
+                  </tr>
                   <tr
                     v-for="item in movimentacaoSelecionada?.itens"
                     :key="item.id"
+                    class="hover:bg-slate-50/60 transition-colors"
                   >
-                    <td class="py-4 px-6 font-bold text-slate-700">
-                      {{ item.produto?.nome || "-" }}
+                    <!-- Produto/Medicamento -->
+                    <td class="py-3 px-5 font-bold text-slate-800">
+                      <div>
+                        {{ item.produto?.nome || `Produto #${item.produto_id}` }}
+                      </div>
+                      <span v-if="item.produto?.codigo_simpas || item.produto?.codigo_simpass" class="text-[10px] font-mono text-slate-400">
+                        SIMPAS: {{ item.produto?.codigo_simpas || item.produto?.codigo_simpass }}
+                      </span>
                     </td>
-                    <!-- Lotes com pills individuais -->
-                    <td class="py-4 px-6">
+
+                    <!-- Lote -->
+                    <td class="py-3 px-4">
                       <div v-if="item.lotes_parsed && item.lotes_parsed.length > 0" class="flex flex-wrap gap-1">
                         <span
                           v-for="(lp, li) in item.lotes_parsed"
                           :key="li"
-                          class="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded font-mono"
+                          class="inline-flex items-center gap-1 text-[11px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded font-mono font-medium"
                         >
-                          {{ lp.lote }}<span v-if="lp.qtd" class="font-black text-slate-800">&times;{{ lp.qtd }}</span>
+                          {{ lp.lote }}<span v-if="lp.qtd" class="font-bold text-slate-900">&times;{{ lp.qtd }}</span>
                         </span>
                       </div>
-                      <span v-else class="text-slate-300 text-xs">—</span>
+                      <span v-else-if="item.numero_lote || item.lote || movimentacaoSelecionada?.lote" class="inline-flex items-center text-[11px] font-mono font-medium text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                        {{ item.numero_lote || item.lote || movimentacaoSelecionada?.lote }}
+                      </span>
+                      <span v-else class="text-xs text-slate-400 font-mono">-</span>
                     </td>
-                    <td class="py-4 px-6 text-center">
-                      <Badge variant="secondary" class="font-black">{{
-                        parseInt(item.quantidade_solicitada) || 0
-                      }}</Badge>
+
+                    <!-- Validade -->
+                    <td class="py-3 px-4 text-center">
+                      <span v-if="item.validade" class="text-xs font-mono text-slate-600 font-medium">
+                        {{ item.validade }}
+                      </span>
+                      <span v-else-if="item.lotes_parsed?.[0]?.data_vencimento" class="text-xs font-mono text-slate-600 font-medium">
+                        {{ formatarData(item.lotes_parsed[0].data_vencimento) }}
+                      </span>
+                      <span v-else class="text-xs text-slate-300 font-mono">-</span>
                     </td>
-                    <td class="py-4 px-6 text-center">
+
+                    <!-- Qtd Solicitada -->
+                    <td class="py-3 px-4 text-center">
+                      <Badge variant="secondary" class="font-black">
+                        {{ parseInt(item.quantidade_solicitada) || 0 }}
+                      </Badge>
+                    </td>
+
+                    <!-- Qtd Atendida -->
+                    <td class="py-3 px-4 text-center">
                       <Badge
-                        v-if="item.quantidade_liberada"
-                        variant="success"
-                        class="font-black"
-                        >{{ parseInt(item.quantidade_liberada) || 0 }}</Badge
+                        v-if="item.quantidade_liberada > 0"
+                        class="font-black bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
                       >
-                      <span
-                        v-else
-                        class="text-slate-300 font-bold italic text-xs"
-                        >Aguardando</span
+                        {{ parseInt(item.quantidade_liberada) || 0 }}
+                      </Badge>
+                      <Badge
+                        v-else-if="movimentacaoSelecionada?.tipo === 'D' && (item.quantidade_devolvendo > 0 || item.quantidade_liberada > 0)"
+                        class="font-black bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100"
                       >
+                        {{ parseInt(item.quantidade_devolvendo || item.quantidade_liberada) || 0 }}
+                      </Badge>
+                      <span v-else class="text-slate-300 font-bold italic text-xs">
+                        Aguardando
+                      </span>
+                    </td>
+
+                    <!-- Qtd Devolvida -->
+                    <td class="py-3 px-4 text-center">
+                      <Badge
+                        v-if="Number(item.quantidade_devolvida || calcularQtdDevolvida(movimentacaoSelecionada, item.id)) > 0"
+                        class="font-black bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100"
+                      >
+                        {{ parseInt(item.quantidade_devolvida || calcularQtdDevolvida(movimentacaoSelecionada, item.id)) }} un devolvidas
+                      </Badge>
+                      <span v-else class="text-slate-300 font-mono font-bold text-xs">-</span>
                     </td>
                   </tr>
                 </tbody>
