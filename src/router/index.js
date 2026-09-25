@@ -355,10 +355,8 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresSector && !hasSector) {
     const userObj = store.state.user || JSON.parse(localStorage.getItem('user') || '{}');
     const isGlobalAdmin = userObj && (
-      userObj.email === "admin@admin.com" || userObj.email === "adminti@gmail.com" || userObj.is_super_admin || 
-      userObj.email === "adminti@gmail.com" || 
-      !!userObj.is_admin || 
-      !!userObj.is_super_admin
+      Boolean(userObj.is_super_admin) ||
+      Boolean(userObj.is_admin)
     );
     
     if (isGlobalAdmin) {
@@ -418,9 +416,8 @@ router.beforeEach(async (to, from, next) => {
     // Define se o usuário logado é o administrador global do sistema
     const userObj = store.state.user || JSON.parse(localStorage.getItem('user') || '{}');
     const isGlobalAdmin = userObj && (
-      userObj.email === "admin@admin.com" || userObj.email === "adminti@gmail.com" || userObj.is_super_admin || 
-      !!userObj.is_admin || 
-      !!userObj.is_super_admin
+      Boolean(userObj.is_super_admin) ||
+      Boolean(userObj.is_admin)
     );
 
     const isSolic = await checkIsSolicitante();
