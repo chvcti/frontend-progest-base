@@ -102,7 +102,7 @@ const setorEstoque = computed(
 const user = computed(() => store.state.user || {});
 const canViewFinanceiro = computed(() => {
   if (resumoEstoque.value?.pode_ver_valores === true) return true;
-  const isSuper = user.value.email?.toLowerCase() === "adminti@gmail.com" || user.value.email?.toLowerCase() === "admin@admin.com" || user.value.is_super_admin;
+  const isSuper = Boolean(user.value.is_super_admin) || Boolean(user.value.is_admin);
   const nomeSetor = (setorEstoque.value?.nome || store.state.setorDetails?.nome || "").toUpperCase();
   const isCAF = nomeSetor.includes("CAF") || nomeSetor.includes("CENTRAL DE ABASTECIMENTO");
   return isSuper && isCAF;

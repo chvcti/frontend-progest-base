@@ -39,8 +39,6 @@ const isAdmin = computed(() => {
   const u = user.value;
   if (!u) return false;
   if (
-    u.email?.toLowerCase() === "admin@admin.com" ||
-    u.email?.toLowerCase() === "adminti@gmail.com" ||
     u.is_super_admin ||
     u.is_admin ||
     store.getters.isSuperAdmin

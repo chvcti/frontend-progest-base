@@ -282,7 +282,7 @@ export default {
         return true;
       }
       const u = this.$store.state.user || {};
-      const isSuper = u.email?.toLowerCase() === 'adminti@gmail.com' || u.email?.toLowerCase() === 'admin@admin.com' || u.is_super_admin;
+      const isSuper = Boolean(u.is_super_admin) || Boolean(u.is_admin);
       const setorNome = (this.displaySetor?.nome || this.$store.state.setorDetails?.nome || '').toUpperCase();
       const isCAF = setorNome.includes('CAF') || setorNome.includes('CENTRAL DE ABASTECIMENTO');
       return isSuper && isCAF;
