@@ -244,7 +244,7 @@ const polos = computed(() => {
 
 const isGlobalAdmin = computed(() => {
   const user = store.state.user;
-  return user && (user.email === "admin@admin.com" || user.email === "adminti@gmail.com" || !!user.is_admin || !!user.is_super_admin);
+  return user && (!!user.is_super_admin || !!user.is_admin);
 });
 
 const setoresFiltrados = computed(() => {

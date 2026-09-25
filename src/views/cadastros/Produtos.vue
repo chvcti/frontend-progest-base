@@ -77,8 +77,6 @@ const isAdmin = computed(() => {
   const user = store.state.user || store.getters.getUser;
   if (!user) return false;
   if (
-    user.email === "admin@admin.com" ||
-    user.email === "adminti@gmail.com" ||
     user.is_super_admin ||
     user.is_admin ||
     store.getters.isSuperAdmin
