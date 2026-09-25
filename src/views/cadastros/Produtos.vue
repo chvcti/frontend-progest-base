@@ -73,7 +73,36 @@ const marcasParaFiltro = computed(() => {
   return marcas.sort();
 });
 
-const canManageProdutos = computed(() => store.getters.isSuperAdmin || store.getters.getUser?.perfil === 'admin' || (store.getters.getSetoresComAcesso || []).some(s => s.perfil === 'admin'));
+const isAdmin = computed(() => {
+  const user = store.state.user || store.getters.getUser;
+  if (!user) return false;
+  if (
+    user.email === "admin@admin.com" ||
+    user.email === "adminti@gmail.com" ||
+    user.is_super_admin ||
+    user.is_admin ||
+    store.getters.isSuperAdmin
+  ) {
+    return true;
+  }
+  if (user.perfil === "admin" || user.role === "admin" || user.usuario_tipo === "admin") {
+    return true;
+  }
+  const list = store.state.listUsuariosSetor || [];
+  if (
+    list.some(
+      (u) =>
+        (u.usuario_id === user.id || u.id === user.id) &&
+        (u.perfil === "admin" || u.pivot?.perfil === "admin")
+    )
+  ) {
+    return true;
+  }
+  const setoresComAcesso = store.getters.getSetoresComAcesso || [];
+  return setoresComAcesso.some((s) => s.perfil === "admin");
+});
+
+const canManageProdutos = computed(() => isAdmin.value);
 
 const listProdutos = computed(() => {
   const data = store.state.listProdutos;
@@ -277,7 +306,7 @@ onMounted(() => {
               </div>
 
               <LinkModal01
-                v-if="canManageProdutos"
+                v-if="isAdmin"
                 label="CADASTRAR PRODUTO"
                 :titleModal="titleModal"
                 :varsModalData="varsModalData"

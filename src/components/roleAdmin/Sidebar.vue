@@ -126,7 +126,7 @@
         </router-link>
 
         <router-link
-          v-if="isCAF && (isAdminPerfil || isAlmoxarifePerfil || isAdminUser)"
+          v-if="isCAF && (isAdminPerfil || isAdminUser)"
           class="menu-item"
           to="/setor-atual?tab=entrada"
           title="Registrar Entrada"

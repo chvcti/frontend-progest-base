@@ -35,21 +35,34 @@ const props = defineProps({
 
 const store = useStore();
 const user = computed(() => store.state.user || {});
-const canAddEntrada = computed(() => {
-  if (user.value.email?.toLowerCase() === "admin@admin.com" || user.value.email?.toLowerCase() === "adminti@gmail.com" || user.value.is_super_admin) return true;
-  if (user.value.is_admin) return true;
+const isAdmin = computed(() => {
+  const u = user.value;
+  if (!u) return false;
+  if (
+    u.email?.toLowerCase() === "admin@admin.com" ||
+    u.email?.toLowerCase() === "adminti@gmail.com" ||
+    u.is_super_admin ||
+    u.is_admin ||
+    store.getters.isSuperAdmin
+  ) {
+    return true;
+  }
+  if (u.perfil === "admin" || u.role === "admin" || u.usuario_tipo === "admin") {
+    return true;
+  }
 
   const list = store.state.listUsuariosSetor || [];
-  const found = list.find((u) => {
-    const userId = u.usuario_id || u.user_id || u.id || u.usuario?.id;
-    const perfil = (u.perfil || u.pivot?.perfil || "").toString().toLowerCase();
-    return (
-      userId === user.value.id &&
-      (perfil.includes("almoxarife"))
-    );
+  const found = list.find((item) => {
+    const userId = item.usuario_id || item.user_id || item.id || item.usuario?.id;
+    const perfil = (item.perfil || item.pivot?.perfil || "").toString().toLowerCase();
+    return userId === u.id && perfil === "admin";
   });
-  return !!found;
+  if (found) return true;
+
+  const setoresComAcesso = store.getters.getSetoresComAcesso || [];
+  return setoresComAcesso.some((s) => s.perfil === "admin");
 });
+const canAddEntrada = computed(() => isAdmin.value);
 const parentData = inject("setorAtualData", {
   entradasItems: [],
 });
@@ -193,7 +206,7 @@ const handleEntradaRegistrada = async () => {
       </div>
 
       <Button
-        v-if="canAddEntrada"
+        v-if="isAdmin"
         @click="dialogEntradaOpen = true"
         class="gap-2 shadow-lg shadow-primary/20 shrink-0"
       >
@@ -326,10 +339,17 @@ const handleEntradaRegistrada = async () => {
         <ArrowDownIcon class="w-12 h-12 text-slate-300" />
       </div>
       <h3 class="text-slate-800 font-bold text-lg">Sem Entradas Externas</h3>
-      <p class="text-slate-500 text-sm max-w-xs text-center mt-2">
+      <p class="text-slate-500 text-sm max-w-xs text-center mt-2 mb-4">
         Nenhuma nota fiscal foi lançada diretamente para este setor até o
         momento.
       </p>
+      <Button
+        v-if="isAdmin"
+        @click="dialogEntradaOpen = true"
+        class="gap-2 shadow-lg shadow-primary/20"
+      >
+        <PlusIcon class="w-4 h-4" /> Registrar Nova Entrada
+      </Button>
     </div>
 
     <!-- Modals -->

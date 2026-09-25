@@ -73,6 +73,24 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresSector: true, roles: ['admin'] },
     },
     {
+      path: "/dashboard",
+      name: "dashboard",
+      redirect: "/setor-atual",
+      meta: { requiresAuth: true, requiresSector: true },
+    },
+    {
+      path: "/produtos/novo",
+      name: "produtosNovo",
+      component: Produtos,
+      meta: { requiresAuth: true, requiresSector: true, roles: ['admin'] },
+    },
+    {
+      path: "/entradas/nova",
+      name: "entradasNova",
+      redirect: "/setor-atual?tab=entrada",
+      meta: { requiresAuth: true, requiresSector: true, roles: ['admin'] },
+    },
+    {
       path: "/produtos",
       name: "produtos",
       component: Produtos,
@@ -437,6 +455,8 @@ router.beforeEach(async (to, from, next) => {
     // ------------------------------------------------------------------
     const rotasCadastros = [
       "/produtos",
+      "/produtos/novo",
+      "/entradas/nova",
       "/fornecedores",
       "/grupoProduto",
       "/unidadesMedida",
@@ -454,7 +474,7 @@ router.beforeEach(async (to, from, next) => {
         to.path !== "/setor-selection");
 
     if ((isSolic || isAlmox) && isCadastroPath && !isGlobalAdmin) {
-      next("/setor-atual");
+      next("/dashboard");
       return;
     }
 
