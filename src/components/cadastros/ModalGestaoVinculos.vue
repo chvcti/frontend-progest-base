@@ -134,7 +134,7 @@ const remover = async (vinculo) => {
 };
 
 const perfilConfig = {
-  admin: { label: "Admin", color: "text-rose-600 border-rose-200 bg-rose-50" },
+  admin: { label: "Administrador", color: "text-rose-600 border-rose-200 bg-rose-50" },
   almoxarife: { label: "Almoxarife", color: "text-blue-600 border-blue-200 bg-blue-50" },
   solicitante: { label: "Solicitante", color: "text-emerald-600 border-emerald-200 bg-emerald-50" },
 };
@@ -144,7 +144,15 @@ const getPerfilConfig = (perfil) =>
 
 const canGrantAdmin = computed(() => {
   const u = store.state.user;
-  return u && (u.is_super_admin || u.is_admin_caf);
+  if (!u) return false;
+  if (u.is_super_admin || store.getters.isSuperAdmin) return true;
+  if (u.is_admin_caf) return true;
+  const setores = store.state.setoresComAcesso || u.setores || [];
+  return setores.some(
+    (s) =>
+      (s.id === 1 || (s.nome && s.nome.toUpperCase().includes("CAF"))) &&
+      (s.perfil === "admin" || s.pivot?.perfil === "admin")
+  );
 });
 
 const close = () => emit("update:open", false);
@@ -152,25 +160,25 @@ const close = () => emit("update:open", false);
 
 <template>
   <Dialog :open="open" @update:open="close">
-    <DialogContent class="max-w-lg max-h-[85vh] overflow-y-auto">
+    <DialogContent class="max-w-lg w-full max-h-[85vh] overflow-y-auto overflow-x-hidden">
       <DialogHeader>
-        <DialogTitle class="flex items-center gap-2">
-          <LinkIcon class="w-5 h-5 text-primary" />
-          Gerenciar Vínculos — {{ usuario?.name }}
+        <DialogTitle class="flex items-center gap-2 truncate">
+          <LinkIcon class="w-5 h-5 text-primary shrink-0" />
+          <span class="truncate">Gerenciar Vínculos — {{ usuario?.name }}</span>
         </DialogTitle>
       </DialogHeader>
 
-      <div class="space-y-5 py-2">
+      <div class="space-y-5 py-2 max-w-full overflow-x-hidden">
         <!-- Formulário de adição -->
-        <div class="bg-slate-50 rounded-xl border border-slate-100 p-4 space-y-3">
+        <div class="bg-slate-50 rounded-xl border border-slate-100 p-4 space-y-3 max-w-full overflow-x-hidden">
           <Label class="text-xs font-bold uppercase tracking-wider text-slate-500">Novo Vínculo</Label>
 
           <div class="grid grid-cols-1 gap-4">
             <div class="space-y-1.5">
               <Label>Setor</Label>
               <Select v-model="novoSetorId">
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o setor..." />
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Selecione o setor..." class="truncate" />
                 </SelectTrigger>
                 <SelectContent>
                   <div v-if="setoresDisponiveis.length === 0" class="py-4 text-center text-sm text-muted-foreground">
@@ -190,13 +198,13 @@ const close = () => emit("update:open", false);
             <div class="space-y-1.5">
               <Label>Perfil no Setor</Label>
               <Select v-model="novoPerfil">
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger class="w-full">
+                  <SelectValue class="truncate" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="solicitante">Solicitante</SelectItem>
                   <SelectItem value="almoxarife">Almoxarife</SelectItem>
-                  <SelectItem v-if="canGrantAdmin" value="admin">Admin do Setor</SelectItem>
+                  <SelectItem v-if="canGrantAdmin" value="admin">Administrador</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -218,7 +226,7 @@ const close = () => emit("update:open", false);
         </div>
 
         <!-- Lista de vínculos atuais -->
-        <div class="space-y-2">
+        <div class="space-y-2 max-w-full overflow-x-hidden">
           <Label class="text-xs font-bold uppercase tracking-wider text-slate-500">
             Acessos Atuais ({{ vinculos.length }})
           </Label>
@@ -231,38 +239,38 @@ const close = () => emit("update:open", false);
             Nenhum setor vinculado a este colaborador.
           </div>
 
-          <div v-else class="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+          <div v-else class="space-y-2 pr-1 max-w-full overflow-x-hidden">
             <div
               v-for="v in vinculos"
               :key="v.setor_id"
-              class="flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:shadow transition-shadow"
+              class="flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm hover:shadow transition-shadow max-w-full overflow-hidden gap-2"
             >
-              <div class="flex items-center gap-3 min-w-0">
+              <div class="flex items-center gap-3 min-w-0 flex-1">
                 <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
                   <PackageIcon class="w-4 h-4 text-slate-500" />
                 </div>
-                <div class="min-w-0">
-                  <p class="text-sm font-semibold text-slate-800 truncate">
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold text-slate-800 truncate" :title="formatarNomeSetor(v.setor) || v.setor?.nome">
                     {{ formatarNomeSetor(v.setor) || v.setor?.nome || `Setor #${v.setor_id}` }}
                   </p>
-                  <p class="text-[10px] text-slate-400">
+                  <p class="text-[10px] text-slate-400 truncate">
                     {{ v.setor?.polo?.nome || 'Polo não informado' }}
                   </p>
                 </div>
               </div>
 
-              <div class="flex items-center gap-2 shrink-0 ml-3">
+              <div class="flex items-center gap-2 shrink-0 ml-2">
                 <Badge
                   variant="outline"
                   :class="getPerfilConfig(v.perfil).color"
-                  class="text-[10px] font-bold uppercase tracking-widest"
+                  class="text-[10px] font-bold uppercase tracking-widest whitespace-nowrap"
                 >
                   {{ getPerfilConfig(v.perfil).label }}
                 </Badge>
                 <Button
                   variant="ghost"
                   size="icon"
-                  class="h-7 w-7 text-slate-400 hover:text-destructive"
+                  class="h-7 w-7 text-slate-400 hover:text-destructive shrink-0"
                   @click="remover(v)"
                   :disabled="loading"
                 >

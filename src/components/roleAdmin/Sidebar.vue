@@ -212,7 +212,7 @@
 
               <!-- Polos: só super admin -->
               <router-link
-                v-if="isAdminUser"
+                v-if="isSuperAdmin"
                 class="submenu-item"
                 to="/polos"
                 title="Polos"
@@ -414,9 +414,16 @@ const solicitacoesPendentes = ref(0);
 
 const emit = defineEmits(["toggle"]);
 
-// Verificar se o usuário é super admin (God Mode)
+// Verificar se o usuário é super admin (exclusivo para governança global)
+const isSuperAdmin = computed(() => {
+  return Boolean(store.getters.isSuperAdmin);
+});
+
+// Verificar se o usuário é admin (super admin ou admin do setor)
 const isAdminUser = computed(() => {
-  return store.getters.isSuperAdmin;
+  const u = store.state.user;
+  if (!u) return false;
+  return Boolean(u.is_super_admin) || Boolean(u.is_admin);
 });
 
 // Verificar se o setor atual tem um setor fornecedor (não é raiz/fornecedor/distribuidor)

@@ -244,7 +244,7 @@ const polos = computed(() => {
 
 const isGlobalAdmin = computed(() => {
   const user = store.state.user;
-  return user && (!!user.is_super_admin || !!user.is_admin);
+  return Boolean(user && user.is_super_admin);
 });
 
 const setoresFiltrados = computed(() => {
@@ -288,8 +288,47 @@ const carregarSetores = async () => {
     console.log("✅ Resultado da chamada getSetoresWithAccess:", resultado);
 
     if (resultado.success && resultado.data && resultado.data.length > 0) {
-      console.log("✓ Setores carregados com sucesso:", resultado.data.length);
-      setores.value = resultado.data;
+      console.log("✓ Setores retornados da API:", resultado.data.length);
+
+      const user = store.state.user;
+      const isSuperAdmin = Boolean(user && user.is_super_admin);
+
+      if (isSuperAdmin) {
+        // Super Admin tem acesso a todos os setores do hospital
+        setores.value = resultado.data;
+      } else {
+        // Usuários comuns, administradores de setor (incluindo CAF) ou polos:
+        // DEVEM listar estritamente os setores aos quais possuem vínculo em usuario_setor
+        const token = store.getters.getUserToken || localStorage.getItem("token");
+        let vinculosIds = [];
+
+        if (Array.isArray(user?.setores) && user.setores.length > 0) {
+          vinculosIds = user.setores.map((s) => Number(s.id || s.setor_id)).filter(Boolean);
+        }
+
+        if (user?.id) {
+          try {
+            const resp = await axios.post(
+              "/usuarioSetor/listByUsuario",
+              { usuario_id: user.id },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (resp.data?.status && Array.isArray(resp.data?.data)) {
+              const idsApi = resp.data.data
+                .map((v) => Number(v.setor_id || v.id || v.setor?.id))
+                .filter(Boolean);
+              vinculosIds = [...new Set([...vinculosIds, ...idsApi])];
+            }
+          } catch (e) {
+            console.warn("Erro ao buscar vínculos de usuario_setor:", e);
+          }
+        }
+
+        const allowedSet = new Set(vinculosIds);
+        setores.value = resultado.data.filter((s) =>
+          allowedSet.has(Number(s.id))
+        );
+      }
 
       // Auto-selecionar polo se houver apenas um
       if (polos.value.length === 1) {

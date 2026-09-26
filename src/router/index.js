@@ -354,10 +354,17 @@ router.beforeEach(async (to, from, next) => {
   // Se a rota requer setor selecionado e não tem
   if (to.meta.requiresSector && !hasSector) {
     const userObj = store.state.user || JSON.parse(localStorage.getItem('user') || '{}');
+    const isSuperAdmin = Boolean(userObj && userObj.is_super_admin);
     const isGlobalAdmin = userObj && (
-      Boolean(userObj.is_super_admin) ||
+      isSuperAdmin ||
       Boolean(userObj.is_admin)
     );
+
+    // Rotas de governança global exclusiva (ex: /polos) só podem ser acessadas por Super Admin
+    if (to.meta.globalAdminOnly && !isSuperAdmin) {
+      next("/setor-selection");
+      return;
+    }
     
     if (isGlobalAdmin) {
       // O admin global tem permissão para ignorar o bloqueio de falta de setor para poder configurar o sistema inicial
@@ -476,11 +483,14 @@ router.beforeEach(async (to, from, next) => {
     }
 
     // ------------------------------------------------------------------
-    // Guard 1.5: verificar globalAdminOnly
+    // Guard 1.5: verificar globalAdminOnly (exclusivo para Super Administradores)
     // ------------------------------------------------------------------
-    if (to.meta && to.meta.globalAdminOnly && !isGlobalAdmin) {
-      next("/setor-atual");
-      return;
+    if (to.meta && to.meta.globalAdminOnly) {
+      const isSuperAdmin = Boolean(userObj && userObj.is_super_admin);
+      if (!isSuperAdmin) {
+        next("/setor-atual");
+        return;
+      }
     }
 
     // ------------------------------------------------------------------

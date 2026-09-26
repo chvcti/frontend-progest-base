@@ -389,6 +389,11 @@ export default createStore({
     isSuperAdmin: (state) => {
       const u = state.user;
       if (!u) return false;
+      return Boolean(u.is_super_admin);
+    },
+    isAdmin: (state) => {
+      const u = state.user;
+      if (!u) return false;
       return Boolean(u.is_super_admin) || Boolean(u.is_admin);
     },
     getSetorAtualId: (state) => state.setorAtualId,
