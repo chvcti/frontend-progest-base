@@ -105,6 +105,8 @@ const dialogCancelamentoOpen = ref(false);
 const movimentacaoParaCancelar = ref(null);
 const loadingCancelamento = ref(false);
 const previewLotesData = ref([]);
+const loadingPreviewLotes = ref(false);
+let previewDebounceTimer = null;
 
 // Estado para gestão de rascunhos
 const rascunhoParaEditar = ref(null);
@@ -116,21 +118,59 @@ const dialogExcluirRascunhoOpen = ref(false);
 const rascunhoParaExcluir = ref(null);
 const loadingExcluirRascunho = ref(false);
 
-const isSetorAdmin = computed(() => {
-  const user = store.state.user;
-  if (!user) return false;
-  // Super Admin tem passe livre
-  if (user.is_super_admin || user.is_admin) return false;
-  
-  const list = parentData.usuariosItems?.value || parentData.usuariosItems || [];
-  const found = list.find((u) => {
-    const userId = u.usuario_id || u.user_id || u.id || u.usuario?.id;
-    return userId === user.id;
+const setorAtual = computed(() => store.state.setorDetails || { id: props.setorId });
+const user = computed(() => store.state.user || {});
+
+const isAdmin = computed(() => {
+  const u = user.value;
+  if (!u) return false;
+  if (u.is_super_admin || u.is_admin || store.getters?.isSuperAdmin) {
+    return true;
+  }
+  if (u.perfil === "admin" || u.role === "admin" || u.usuario_tipo === "admin") {
+    return true;
+  }
+  const list = parentData.usuariosItems?.value || parentData.usuariosItems || store.state.listUsuariosSetor || [];
+  const found = list.find((item) => {
+    const userId = item.usuario_id || item.user_id || item.id || item.usuario?.id;
+    return userId === u.id;
   });
-  if (!found) return false;
-  
-  const perfil = (found.perfil || found.pivot?.perfil || "").toString().toLowerCase();
-  return perfil.includes("admin") || perfil.includes("gerente");
+  if (found) {
+    const p = (found.perfil || found.pivot?.perfil || "").toString().toLowerCase();
+    return p.includes("admin") || p.includes("gerente");
+  }
+  const setoresComAcesso = store.getters?.getSetoresComAcesso || [];
+  return setoresComAcesso.some(
+    (s) =>
+      (Number(s.id) === Number(props.setorId) || Number(s.setor_id) === Number(props.setorId)) &&
+      (s.perfil === "admin" || s.perfil === "gerente")
+  );
+});
+
+const isAlmoxarife = computed(() => {
+  const u = user.value;
+  if (!u) return false;
+  if (u.is_super_admin || u.is_admin || store.getters?.isSuperAdmin) {
+    return true;
+  }
+  const pUser = (u.perfil || u.role || u.usuario_tipo || "").toString().toLowerCase();
+  if (pUser.includes("almoxarife")) return true;
+
+  const list = parentData.usuariosItems?.value || parentData.usuariosItems || store.state.listUsuariosSetor || [];
+  const found = list.find((item) => {
+    const userId = item.usuario_id || item.user_id || item.id || item.usuario?.id;
+    return userId === u.id;
+  });
+  if (found) {
+    const p = (found.perfil || found.pivot?.perfil || "").toString().toLowerCase();
+    return p.includes("almoxarife");
+  }
+  const setoresComAcesso = store.getters?.getSetoresComAcesso || [];
+  return setoresComAcesso.some(
+    (s) =>
+      (Number(s.id) === Number(props.setorId) || Number(s.setor_id) === Number(props.setorId)) &&
+      (s.perfil || "").toString().toLowerCase().includes("almoxarife")
+  );
 });
 
 // Tipo e status vivem na URL para que atalhos do menu (ex.: "Solicitações
@@ -275,24 +315,29 @@ const isSaida = (mov) => {
   return Number(mov.setor_origem_id) === sid || Number(mov.setorOrigem?.id) === sid;
 };
 
-// Em devolução (tipo 'D'), o setor de destino (quem recebe a mercadoria de volta) é quem aprova;
-// Em transferência comum, quem aprova é o setor de origem (quem fornece o item).
-const podeAprovarMov = (mov) => {
-  if (mov.status_solicitacao !== "P") return false;
-  if (mov.tipo === "D") {
-    return isEntrada(mov);
-  }
-  return isSaida(mov);
+// Unificação da função de autorização/aprovação de movimentação
+const podeAprovar = (mov) => {
+  if (!mov || mov.status_solicitacao !== "P") return false;
+  const currentSetorId = Number(setorAtual.value?.id || props.setorId);
+  const isDestino = Number(mov.setor_destino_id || mov.setorDestino?.id) === currentSetorId;
+  const isOrigem = Number(mov.setor_origem_id || mov.setorOrigem?.id) === currentSetorId;
+  const temPermissao = isAdmin.value || isAlmoxarife.value;
+  if (mov.tipo === "D") return isDestino && temPermissao;
+  return isOrigem && temPermissao;
 };
+const podeAprovarMov = podeAprovar;
 
 // Em devolução, quem pode cancelar antes da aprovação é quem solicitou a devolução (origem);
 // Em transferência comum, quem pode cancelar é quem fez o pedido (destino).
 const podeCancelarMov = (mov) => {
-  if (mov.status_solicitacao !== "P") return false;
+  if (!mov || mov.status_solicitacao !== "P") return false;
+  const currentSetorId = Number(setorAtual.value?.id || props.setorId);
+  const isDestino = Number(mov.setor_destino_id || mov.setorDestino?.id) === currentSetorId;
+  const isOrigem = Number(mov.setor_origem_id || mov.setorOrigem?.id) === currentSetorId;
   if (mov.tipo === "D") {
-    return isSaida(mov);
+    return isOrigem;
   }
-  return isEntrada(mov);
+  return isDestino;
 };
 
 // Verifica se o rascunho pertence ao setor atual para permitir edição/envio
@@ -437,27 +482,183 @@ const motivoDoErro = (e, padrao) => {
   return data?.message || padrao;
 };
 
+const limparTextoLote = (str) => {
+  if (!str) return "";
+  let res = String(str).trim();
+  res = res.replace(/\s*\([Vv]alidade:?[^)]*\)/g, "");
+  res = res.replace(/\s*-\s*[Vv]alidade:?.*$/i, "");
+  res = res.replace(/^[Ll]ote:\s*/i, "");
+  return res.trim();
+};
+
+const formatarLoteExibicao = (raw) => {
+  if (!raw) return "-";
+  if (typeof raw === "object") {
+    if (Array.isArray(raw)) {
+      return (
+        raw
+          .map((l) => limparTextoLote(l.lote || l.numero_lote || (typeof l === "string" ? l : "")))
+          .filter(Boolean)
+          .join(", ") || "-"
+      );
+    }
+    return limparTextoLote(raw.lote || raw.numero_lote) || "-";
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return formatarLoteExibicao(parsed);
+      } catch (e) {}
+    }
+    return limparTextoLote(trimmed) || "-";
+  }
+  return limparTextoLote(raw) || "-";
+};
+
+// Verifica se o setor de origem da movimentação controla estoque físico
+const origemControlaEstoqueAprovacao = computed(() => {
+  if (!movimentacaoParaAprovar.value) return false;
+  if (movimentacaoParaAprovar.value.tipo === "D") {
+    const origem =
+      movimentacaoParaAprovar.value.setor_origem ||
+      movimentacaoParaAprovar.value.setorOrigem;
+    return Boolean(origem?.estoque);
+  }
+  // Em saída (S) ou transferência (T), o setor de origem (fornecedor) controla estoque
+  return true;
+});
+
+// Busca a prévia dos lotes que serão consumidos pelo FIFO
+const carregarPreviewLotes = async () => {
+  if (!movimentacaoParaAprovar.value || !dialogAprovacaoOpen.value) return;
+
+  if (!origemControlaEstoqueAprovacao.value) {
+    previewLotesData.value = [];
+    return;
+  }
+
+  const itensPayload = itensParaAprovacao.value.map((it) => ({
+    id: it.id,
+    produto_id: it.produto?.id || it.produto_id,
+    quantidade_liberada: Number(it.quantidade_liberada) || 0,
+  }));
+
+  const temQuantidade = itensPayload.some((it) => it.quantidade_liberada > 0);
+  if (!temQuantidade) {
+    previewLotesData.value = [];
+    return;
+  }
+
+  loadingPreviewLotes.value = true;
+  try {
+    const authHeader = { Authorization: "Bearer " + store.getters.getUserToken };
+    const response = await axios.get(
+      `/movimentacao/${movimentacaoParaAprovar.value.id}/preview-lotes`,
+      {
+        headers: authHeader,
+        params: {
+          itens: itensPayload,
+        },
+      }
+    );
+
+    if (response.data?.status && Array.isArray(response.data?.data)) {
+      const rawPreview = response.data.data;
+      previewLotesData.value = rawPreview.map((prodPreview) => {
+        const itemAprov = itensParaAprovacao.value.find(
+          (it) => (it.produto?.id || it.produto_id) === prodPreview.produto_id
+        );
+        const qtdLiberar = Number(itemAprov?.quantidade_liberada) || 0;
+
+        if (qtdLiberar <= 0) {
+          return {
+            ...prodPreview,
+            quantidade_liberada: 0,
+            quantidade_sem_cobertura: 0,
+            lotes_a_consumir: [],
+          };
+        }
+
+        let restante = qtdLiberar;
+        const lotesAlocados = [];
+
+        for (const lote of prodPreview.lotes_a_consumir || []) {
+          if (restante <= 0) break;
+          const saldoLote = Number(lote.quantidade_disponivel) || 0;
+          if (saldoLote <= 0) continue;
+          const qtdUsar = Math.min(saldoLote, restante);
+          lotesAlocados.push({
+            ...lote,
+            quantidade_a_usar: qtdUsar,
+          });
+          restante -= qtdUsar;
+        }
+
+        return {
+          ...prodPreview,
+          quantidade_liberada: qtdLiberar,
+          quantidade_sem_cobertura: Math.max(0, restante),
+          lotes_a_consumir: lotesAlocados,
+        };
+      });
+    }
+  } catch (e) {
+    console.error("Erro ao carregar prévia de lotes FIFO:", e);
+  } finally {
+    loadingPreviewLotes.value = false;
+  }
+};
+
+// Filtra apenas produtos com quantidade a liberar > 0 e com lotes alocados
+const previewLotesVisiveis = computed(() => {
+  if (!origemControlaEstoqueAprovacao.value) return [];
+  return previewLotesData.value.filter((preview) => {
+    const it = itensParaAprovacao.value.find(
+      (item) => (item.produto?.id || item.produto_id) === preview.produto_id
+    );
+    return (
+      it &&
+      Number(it.quantidade_liberada) > 0 &&
+      Array.isArray(preview.lotes_a_consumir) &&
+      preview.lotes_a_consumir.length > 0
+    );
+  });
+});
+
+// Watcher reativo: ao alterar a quantidade liberada, atualiza a prévia FIFO com debounce
+watch(
+  () => itensParaAprovacao.value.map((it) => it.quantidade_liberada),
+  () => {
+    if (!dialogAprovacaoOpen.value) return;
+    if (previewDebounceTimer) clearTimeout(previewDebounceTimer);
+    previewDebounceTimer = setTimeout(() => {
+      carregarPreviewLotes();
+    }, 250);
+  },
+  { deep: true },
+);
+
 const abrirModalAprovacao = async (mov) => {
   movimentacaoParaAprovar.value = mov;
   previewLotesData.value = [];
   loadingAprovacao.value = true;
   try {
     const authHeader = { Authorization: "Bearer " + store.getters.getUserToken };
-    const [estoqueResponse, previewResponse] = await Promise.allSettled([
-      axios.get(`/estoque/setor/${props.setorId}`, { headers: authHeader }),
-      axios.get(`/movimentacao/${mov.id}/preview-lotes`, { headers: authHeader }),
-    ]);
-
+    const isDevolucao = mov.tipo === "D";
     let estoqueMap = {};
-    // A API retorna 'status' (não 'success') como flag de sucesso
-    if (estoqueResponse.status === "fulfilled" && estoqueResponse.value.data.status && estoqueResponse.value.data.data?.estoque) {
-      estoqueResponse.value.data.data.estoque.forEach((e) => {
-        estoqueMap[e.produto?.id || e.produto_id] = e.quantidade_atual;
-      });
-    }
 
-    if (previewResponse.status === "fulfilled" && previewResponse.value.data.status) {
-      previewLotesData.value = previewResponse.value.data.data || [];
+    if (!isDevolucao) {
+      const estoqueResponse = await axios
+        .get(`/estoque/setor/${props.setorId}`, { headers: authHeader })
+        .catch(() => null);
+
+      if (estoqueResponse?.data?.status && estoqueResponse.data.data?.estoque) {
+        estoqueResponse.data.data.estoque.forEach((e) => {
+          estoqueMap[e.produto?.id || e.produto_id] = e.quantidade_atual;
+        });
+      }
     }
 
     itensParaAprovacao.value = (mov.itens || []).map((item) => {
@@ -468,18 +669,35 @@ const abrirModalAprovacao = async (mov) => {
         }
       } catch(e) { console.error("Erro ao fazer parse dos lotes:", e); }
       
+      const qtdSolicitada = isDevolucao
+        ? (Number(item.quantidade_devolvendo) || Number(item.quantidade_solicitada) || 0)
+        : Number(item.quantidade_solicitada) || 0;
+
+      const estoqueAtual = estoqueMap[item.produto?.id || item.produto_id] ?? 0;
+
+      // limite_maximo: nunca liberar acima do solicitado;
+      // para transferências com estoque de origem, também limitado pelo saldo físico.
+      const temEstoqueOrigem = !isDevolucao && estoqueAtual !== undefined && estoqueAtual !== null;
+      const limiteMaximo = temEstoqueOrigem
+        ? Math.min(qtdSolicitada, Number(estoqueAtual))
+        : qtdSolicitada;
+
       return {
         ...item,
         lotesConsumidos,
-        quantidade_liberada: item.quantidade_liberada ?? item.quantidade_solicitada,
-        estoque_atual: estoqueMap[item.produto?.id || item.produto_id] || 0,
+        quantidade_solicitada: qtdSolicitada,
+        quantidade_liberada: Number(item.quantidade_liberada) > 0 ? Number(item.quantidade_liberada) : qtdSolicitada,
+        estoque_atual: estoqueAtual,
+        limite_maximo: limiteMaximo,
       };
     });
+
     dialogAprovacaoOpen.value = true;
+    await carregarPreviewLotes();
   } catch (e) {
     toast({
       title: "Erro",
-      description: "Não foi possível carregar o estoque para validação.",
+      description: "Não foi possível carregar as informações para validação.",
       variant: "destructive",
     });
   } finally {
@@ -488,13 +706,39 @@ const abrirModalAprovacao = async (mov) => {
 };
 
 const aprovarMovimentacao = async () => {
+  // Validação unificada: nenhum item pode ultrapassar seu limite_maximo (teto de solicitação ou estoque, o que for menor)
+  const algumExcedeLimite = itensParaAprovacao.value.some(
+    (it) => Number(it.quantidade_liberada) > Number(it.limite_maximo) || Number(it.quantidade_liberada) < 0,
+  );
+  if (algumExcedeLimite) {
+    toast({
+      title: "Erro de Validação",
+      description: "A quantidade aprovada não pode exceder o limite máximo permitido (solicitada ou estoque disponível) nem ser negativa.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  const temItemComQuantidade = itensParaAprovacao.value.some(
+    (it) => (Number(it.quantidade_liberada) || 0) > 0,
+  );
+  if (!temItemComQuantidade) {
+    toast({
+      title: "Atenção",
+      description:
+        "Não é possível aprovar com todos os itens zerados. Rejeite a solicitação se não houver atendimento.",
+      variant: "destructive",
+    });
+    return;
+  }
+
   loadingAprovacao.value = true;
   try {
     const payload = {
       status: "A",
       itens: itensParaAprovacao.value.map((it) => ({
         id: it.id,
-        quantidade_liberada: it.quantidade_liberada,
+        quantidade_liberada: Number(it.quantidade_liberada) || 0,
       })),
     };
     await axios.post(
@@ -859,7 +1103,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
                     class="w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200"
                     :class="{ 'rotate-90 text-primary': expandedRows[mov.id] }"
                   />
-                  <!-- Nomenclatura Padrão Hospitalar: Devolução ao Distribuidor 📤 / Devolução Recebida 📥 -->
+                  <!-- Nomenclatura Padrão Hospitalar: Devolução ao Distribuidor / Devolução Recebida -->
                   <div
                     v-if="mov.tipo === 'D'"
                     class="flex items-center gap-1.5 flex-wrap"
@@ -869,7 +1113,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
                       v-if="isEntrada(mov)"
                       class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs"
                     >
-                      <span class="text-sm leading-none">📥</span>
+                      <RotateCcwIcon class="w-3.5 h-3.5 text-emerald-600" />
                       <span>Devolução Recebida</span>
                     </span>
 
@@ -878,16 +1122,16 @@ const calcularQtdDevolvida = (mov, itemId) => {
                       v-else
                       class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs"
                     >
-                      <span class="text-sm leading-none">📤</span>
+                      <RotateCcwIcon class="w-3.5 h-3.5 text-amber-600" />
                       <span>Devolução ao Distribuidor</span>
                     </span>
 
                     <!-- Badge destacada de referência ao pedido -->
                     <span
-                      v-if="mov.pedido_origem_id || (mov.numero_pedido && mov.numero_pedido !== mov.id)"
-                      class="inline-flex items-center text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold border border-slate-200"
+                      v-if="mov.tipo === 'D' && (mov.pedido_origem_id || mov.movimentacao_origem_id)"
+                      class="inline-flex items-center gap-1 text-[11px] bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-bold"
                     >
-                      Ref. Pedido #{{ mov.pedido_origem_id || mov.numero_pedido }}
+                      Devolução referente ao Pedido #{{ mov.pedido_origem_id || mov.movimentacao_origem_id }}
                     </span>
                   </div>
                   <div
@@ -1095,12 +1339,12 @@ const calcularQtdDevolvida = (mov, itemId) => {
               <td colspan="8" class="p-0">
                 <div class="px-6 py-5 border-l-[6px] border-l-slate-200">
                   <div
-                    v-if="mov.tipo === 'D' && (mov.numero_pedido || mov.pedido_origem_id)"
+                    v-if="mov.tipo === 'D' && (mov.pedido_origem_id || mov.movimentacao_origem_id)"
                     class="mb-3"
                   >
                     <Badge variant="outline" class="border-amber-400 bg-amber-50 text-amber-900 font-bold px-2.5 py-1 text-xs">
                       <RotateCcwIcon class="w-3.5 h-3.5 mr-1 inline text-amber-600" />
-                      Devolução referente ao Pedido #{{ mov.numero_pedido || mov.pedido_origem_id }}
+                      Devolução referente ao Pedido #{{ mov.pedido_origem_id || mov.movimentacao_origem_id }}
                     </Badge>
                   </div>
 
@@ -1136,33 +1380,27 @@ const calcularQtdDevolvida = (mov, itemId) => {
                             Validade
                           </th>
                           <th
-                            class="py-2.5 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider"
-                          >
-                            Qtd. Solicitada
-                          </th>
-                          <th
-                            class="py-2.5 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider"
-                          >
-                            Qtd. Atendida
-                          </th>
-                          <th
                             v-if="mov.tipo === 'D'"
                             class="py-2.5 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider"
                           >
-                            Qtd. Devolvendo
+                            Qtd. Aprovada no Pedido
                           </th>
                           <th
-                            v-if="mov.status_solicitacao === 'A' && mov.tipo !== 'D'"
                             class="py-2.5 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider"
                           >
-                            Qtd. Devolvida
+                            {{ mov.tipo === 'D' ? 'Qtd. Devolução Solicitada' : 'Qtd. Solicitada' }}
+                          </th>
+                          <th
+                            class="py-2.5 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider"
+                          >
+                            {{ mov.tipo === 'D' ? 'Qtd. Aceita / Atendida' : 'Qtd. Atendida' }}
                           </th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100">
                         <tr v-if="!mov.itens || mov.itens.length === 0">
                           <td
-                            :colspan="5 + (mov.tipo === 'D' || (mov.status_solicitacao === 'A' && mov.tipo !== 'D') ? 1 : 0)"
+                            :colspan="5 + (mov.tipo === 'D' ? 1 : 0)"
                             class="py-6 text-center text-slate-400 italic text-xs"
                           >
                             Nenhum item nesta requisição.
@@ -1186,11 +1424,11 @@ const calcularQtdDevolvida = (mov, itemId) => {
                                 :key="li"
                                 class="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded font-mono font-medium"
                               >
-                                {{ lp.lote }}<span v-if="lp.qtd" class="font-bold text-slate-900">&times;{{ lp.qtd }}</span>
+                                {{ limparTextoLote(lp.lote) }}<span v-if="lp.qtd" class="font-bold text-slate-900">&times;{{ lp.qtd }}</span>
                               </span>
                             </div>
-                            <span v-else-if="item.numero_lote || item.lote || mov.lote" class="inline-flex items-center text-[11px] font-mono font-medium text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                              {{ item.numero_lote || item.lote || mov.lote }}
+                            <span v-else-if="formatarLoteExibicao(item.numero_lote || item.lote || mov.lote) !== '-'" class="inline-flex items-center text-[11px] font-mono font-medium text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                              {{ formatarLoteExibicao(item.numero_lote || item.lote || mov.lote) }}
                             </span>
                             <span v-else class="text-xs text-slate-400 font-mono">-</span>
                           </td>
@@ -1203,40 +1441,59 @@ const calcularQtdDevolvida = (mov, itemId) => {
                             </span>
                             <span v-else class="text-xs text-slate-300 font-mono">-</span>
                           </td>
+                          <!-- Qtd. Aprovada no Pedido (apenas para Devoluções) -->
+                          <td
+                            v-if="mov.tipo === 'D'"
+                            class="py-3 px-4 text-center"
+                          >
+                            <Badge variant="outline" class="font-bold text-slate-700 bg-slate-50 border-slate-300">
+                              {{ item.quantidade_original_atendida || item.quantidade_liberada_original || item.quantidade_aprovada_original || '-' }}
+                            </Badge>
+                          </td>
                           <td class="py-3 px-4 text-center">
                             <Badge variant="secondary" class="font-black">{{
-                              parseInt(item.quantidade_solicitada) || 0
+                              parseInt(mov.tipo === 'D' ? (item.quantidade_devolvendo || item.quantidade_solicitada) : item.quantidade_solicitada) || 0
                             }}</Badge>
                           </td>
                           <td class="py-3 px-4 text-center">
-                            <Badge
-                              v-if="item.quantidade_liberada > 0"
-                              class="font-black bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
-                              >{{ parseInt(item.quantidade_liberada) || 0 }}</Badge
-                            >
-                            <span
-                              v-else
-                              class="text-slate-300 font-bold italic text-xs"
+                            <template v-if="mov.tipo === 'D'">
+                              <Badge
+                                v-if="mov.status_solicitacao === 'A' && Number(item.quantidade_liberada) > 0"
+                                class="font-black bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                              >
+                                {{ parseInt(item.quantidade_liberada) || 0 }}
+                              </Badge>
+                              <Badge
+                                v-else-if="mov.status_solicitacao === 'A'"
+                                variant="secondary"
+                                class="font-bold text-slate-500 bg-slate-100 border-slate-200"
+                              >
+                                0 (Não aceito)
+                              </Badge>
+                              <span
+                                v-else-if="mov.status_solicitacao === 'R'"
+                                class="text-rose-500 font-bold text-xs"
+                              >
+                                Rejeitada
+                              </span>
+                              <span
+                                v-else
+                                class="text-slate-400 font-bold italic text-xs"
+                              >
+                                Aguardando aceite
+                              </span>
+                            </template>
+                            <template v-else>
+                              <Badge
+                                v-if="item.quantidade_liberada > 0"
+                                class="font-black bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                              >{{ parseInt(item.quantidade_liberada) || 0 }}</Badge>
+                              <span
+                                v-else
+                                class="text-slate-300 font-bold italic text-xs"
                               >Aguardando</span
-                            >
-                          </td>
-                          <td
-                            v-if="mov.tipo === 'D'"
-                            class="py-3 px-4 text-center font-bold text-amber-600"
-                          >
-                            {{ parseInt(item.quantidade_devolvendo || item.quantidade_liberada) || 0 }}
-                          </td>
-                          <!-- Coluna Qtd. Devolvida em pedidos atendidos (permanente) -->
-                          <td
-                            v-if="mov.status_solicitacao === 'A' && mov.tipo !== 'D'"
-                            class="py-3 px-4 text-center"
-                          >
-                            <Badge
-                              v-if="Number(item.quantidade_devolvida || calcularQtdDevolvida(mov, item.id)) > 0"
-                              class="font-black bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100"
-                              >{{ parseInt(item.quantidade_devolvida || calcularQtdDevolvida(mov, item.id)) }} un devolvidas</Badge
-                            >
-                            <span v-else class="text-slate-300 font-mono font-bold text-xs">-</span>
+                              >
+                            </template>
                           </td>
                         </tr>
                       </tbody>
@@ -1294,7 +1551,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
     <!-- Details View: Redesign em 4 Blocos Estruturados (Padrão Hospitalar) -->
     <Dialog v-model:open="dialogDetalhesOpen">
       <DialogContent
-        class="max-w-4xl border-none p-0 overflow-hidden bg-slate-50 shadow-2xl rounded-3xl"
+        class="max-w-4xl w-full border-none p-0 overflow-hidden bg-slate-50 shadow-2xl rounded-3xl overflow-x-hidden"
       >
         <!-- BLOCO 1: Cabeçalho com Número do Pedido, Tipo Hospitalar e Status -->
         <div class="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-800 p-6 text-white border-b border-slate-700/60">
@@ -1351,16 +1608,29 @@ const calcularQtdDevolvida = (mov, itemId) => {
 
               <!-- Referência ao Pedido de Origem quando Devolução -->
               <p
-                v-if="movimentacaoSelecionada?.tipo === 'D' && (movimentacaoSelecionada?.pedido_origem_id || (movimentacaoSelecionada?.numero_pedido && movimentacaoSelecionada?.numero_pedido !== movimentacaoSelecionada?.id))"
+                v-if="movimentacaoSelecionada?.tipo === 'D' && (movimentacaoSelecionada?.pedido_origem_id || movimentacaoSelecionada?.movimentacao_origem_id)"
                 class="text-xs text-amber-300 font-medium flex items-center gap-1.5"
               >
                 <RotateCcwIcon class="w-3.5 h-3.5 text-amber-400" />
-                Devolução ref. ao Pedido #{{ movimentacaoSelecionada?.pedido_origem_id || movimentacaoSelecionada?.numero_pedido }}
+                Devolução referente ao Pedido #{{ movimentacaoSelecionada?.pedido_origem_id || movimentacaoSelecionada?.movimentacao_origem_id }}
               </p>
             </div>
 
-            <!-- Ações: Imprimir e Excel -->
-            <div class="flex items-center gap-2 shrink-0">
+            <!-- Ações: Aprovar, Imprimir e Excel -->
+            <div class="flex items-center gap-2 shrink-0 flex-wrap">
+              <Button
+                v-if="podeAprovar(movimentacaoSelecionada)"
+                size="sm"
+                class="gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md shadow-emerald-950/20"
+                @click="() => {
+                  const m = movimentacaoSelecionada;
+                  dialogDetalhesOpen = false;
+                  abrirModalAprovacao(m);
+                }"
+              >
+                <CheckCircle2Icon class="w-3.5 h-3.5" />
+                {{ movimentacaoSelecionada?.tipo === 'D' ? 'Aprovar Devolução' : 'Analisar e Liberar' }}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -1381,40 +1651,41 @@ const calcularQtdDevolvida = (mov, itemId) => {
           </div>
         </div>
 
-        <div class="p-6 sm:p-8 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div class="p-6 sm:p-8 space-y-6 max-h-[75vh] overflow-y-auto max-w-full overflow-x-hidden">
           <!-- BLOCO 2: Rota Estruturada -->
-          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs max-w-full overflow-hidden">
             <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <ArrowLeftRightIcon class="w-3.5 h-3.5 text-slate-500" />
               Rota Estruturada
             </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-[1fr,auto,1fr] items-center gap-4">
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full max-w-full overflow-hidden">
               <!-- Origem -->
-              <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3">
+              <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3 min-w-0 flex-1 max-w-full overflow-hidden">
                 <div class="p-2 rounded-lg bg-indigo-50 text-indigo-600 shrink-0 mt-0.5">
                   <ArrowUpCircleIcon class="w-4 h-4" />
                 </div>
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1 overflow-hidden">
                   <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Origem</span>
-                  <p class="text-sm font-black text-slate-900 truncate">
+                  <p class="text-sm font-black text-slate-900 truncate max-w-full sm:max-w-[220px] md:max-w-[280px]" :title="formatarSetorComPolo(movimentacaoSelecionada?.setor_origem || movimentacaoSelecionada?.setorOrigem)">
                     {{ formatarSetorComPolo(movimentacaoSelecionada?.setor_origem || movimentacaoSelecionada?.setorOrigem) }}
                   </p>
                 </div>
               </div>
 
               <!-- Seta Rota -->
-              <div class="hidden sm:flex items-center justify-center p-2 rounded-full bg-slate-100 text-slate-400">
-                <ArrowRightIcon class="w-4 h-4" />
+              <div class="flex items-center justify-center p-2 rounded-full bg-slate-100 text-slate-400 shrink-0 self-center">
+                <ArrowRightIcon class="w-4 h-4 hidden sm:block" />
+                <ArrowDownIcon class="w-4 h-4 sm:hidden" />
               </div>
 
               <!-- Destino -->
-              <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3">
+              <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3 min-w-0 flex-1 max-w-full overflow-hidden">
                 <div class="p-2 rounded-lg bg-emerald-50 text-emerald-600 shrink-0 mt-0.5">
                   <ArrowDownCircleIcon class="w-4 h-4" />
                 </div>
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1 overflow-hidden">
                   <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Destino</span>
-                  <p class="text-sm font-black text-slate-900 truncate">
+                  <p class="text-sm font-black text-slate-900 truncate max-w-full sm:max-w-[220px] md:max-w-[280px]" :title="formatarSetorComPolo(movimentacaoSelecionada?.setor_destino || movimentacaoSelecionada?.setorDestino)">
                     {{ formatarSetorComPolo(movimentacaoSelecionada?.setor_destino || movimentacaoSelecionada?.setorDestino) }}
                   </p>
                 </div>
@@ -1488,7 +1759,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
               <FileTextIcon class="w-3.5 h-3.5 text-slate-500" />
               Tabela de Itens
             </h4>
-            <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+            <div class="bg-white border border-slate-200 rounded-2xl overflow-x-auto shadow-xs">
               <table class="w-full text-sm">
                 <thead class="bg-slate-50/90 border-b border-slate-200">
                   <tr>
@@ -1501,20 +1772,23 @@ const calcularQtdDevolvida = (mov, itemId) => {
                     <th class="py-3 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider">
                       Validade
                     </th>
-                    <th class="py-3 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider">
-                      Qtd Solicitada
+                    <th
+                      v-if="movimentacaoSelecionada?.tipo === 'D'"
+                      class="py-3 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider"
+                    >
+                      Qtd. Aprovada no Pedido
                     </th>
                     <th class="py-3 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider">
-                      Qtd Atendida
+                      {{ movimentacaoSelecionada?.tipo === 'D' ? 'Qtd. Devolução Solicitada' : 'Qtd Solicitada' }}
                     </th>
                     <th class="py-3 px-4 text-center font-bold text-slate-500 text-[10px] uppercase tracking-wider">
-                      Qtd Devolvida
+                      {{ movimentacaoSelecionada?.tipo === 'D' ? 'Qtd. Aceita / Atendida' : 'Qtd Atendida' }}
                     </th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                   <tr v-if="!movimentacaoSelecionada?.itens || movimentacaoSelecionada?.itens.length === 0">
-                    <td colspan="6" class="py-6 text-center text-slate-400 italic text-xs">
+                    <td :colspan="5 + (movimentacaoSelecionada?.tipo === 'D' ? 1 : 0)" class="py-6 text-center text-slate-400 italic text-xs">
                       Nenhum item nesta movimentação.
                     </td>
                   </tr>
@@ -1541,11 +1815,11 @@ const calcularQtdDevolvida = (mov, itemId) => {
                           :key="li"
                           class="inline-flex items-center gap-1 text-[11px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded font-mono font-medium"
                         >
-                          {{ lp.lote }}<span v-if="lp.qtd" class="font-bold text-slate-900">&times;{{ lp.qtd }}</span>
+                          {{ limparTextoLote(lp.lote) }}<span v-if="lp.qtd" class="font-bold text-slate-900">&times;{{ lp.qtd }}</span>
                         </span>
                       </div>
-                      <span v-else-if="item.numero_lote || item.lote || movimentacaoSelecionada?.lote" class="inline-flex items-center text-[11px] font-mono font-medium text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                        {{ item.numero_lote || item.lote || movimentacaoSelecionada?.lote }}
+                      <span v-else-if="formatarLoteExibicao(item.numero_lote || item.lote || movimentacaoSelecionada?.lote) !== '-'" class="inline-flex items-center text-[11px] font-mono font-medium text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                        {{ formatarLoteExibicao(item.numero_lote || item.lote || movimentacaoSelecionada?.lote) }}
                       </span>
                       <span v-else class="text-xs text-slate-400 font-mono">-</span>
                     </td>
@@ -1561,41 +1835,61 @@ const calcularQtdDevolvida = (mov, itemId) => {
                       <span v-else class="text-xs text-slate-300 font-mono">-</span>
                     </td>
 
-                    <!-- Qtd Solicitada -->
+                    <!-- Qtd. Aprovada no Pedido (apenas para Devoluções) -->
+                    <td v-if="movimentacaoSelecionada?.tipo === 'D'" class="py-3 px-4 text-center">
+                      <Badge variant="outline" class="font-bold text-slate-700 bg-slate-50 border-slate-300">
+                        {{ item.quantidade_original_atendida || item.quantidade_liberada_original || item.quantidade_aprovada_original || '-' }}
+                      </Badge>
+                    </td>
+
+                    <!-- Qtd Solicitada (na Devolução, exibe a quantidade solicitada para devolver) -->
                     <td class="py-3 px-4 text-center">
                       <Badge variant="secondary" class="font-black">
-                        {{ parseInt(item.quantidade_solicitada) || 0 }}
+                        {{ parseInt(movimentacaoSelecionada?.tipo === 'D' ? (item.quantidade_devolvendo || item.quantidade_solicitada) : item.quantidade_solicitada) || 0 }}
                       </Badge>
                     </td>
 
-                    <!-- Qtd Atendida -->
+                    <!-- Qtd Atendida/Aceita -->
                     <td class="py-3 px-4 text-center">
-                      <Badge
-                        v-if="item.quantidade_liberada > 0"
-                        class="font-black bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
-                      >
-                        {{ parseInt(item.quantidade_liberada) || 0 }}
-                      </Badge>
-                      <Badge
-                        v-else-if="movimentacaoSelecionada?.tipo === 'D' && (item.quantidade_devolvendo > 0 || item.quantidade_liberada > 0)"
-                        class="font-black bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100"
-                      >
-                        {{ parseInt(item.quantidade_devolvendo || item.quantidade_liberada) || 0 }}
-                      </Badge>
-                      <span v-else class="text-slate-300 font-bold italic text-xs">
-                        Aguardando
-                      </span>
-                    </td>
-
-                    <!-- Qtd Devolvida -->
-                    <td class="py-3 px-4 text-center">
-                      <Badge
-                        v-if="Number(item.quantidade_devolvida || calcularQtdDevolvida(movimentacaoSelecionada, item.id)) > 0"
-                        class="font-black bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100"
-                      >
-                        {{ parseInt(item.quantidade_devolvida || calcularQtdDevolvida(movimentacaoSelecionada, item.id)) }} un devolvidas
-                      </Badge>
-                      <span v-else class="text-slate-300 font-mono font-bold text-xs">-</span>
+                      <template v-if="movimentacaoSelecionada?.tipo === 'D'">
+                        <Badge
+                          v-if="movimentacaoSelecionada?.status_solicitacao === 'A' && Number(item.quantidade_liberada) > 0"
+                          class="font-black bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                        >
+                          {{ parseInt(item.quantidade_liberada) || 0 }}
+                        </Badge>
+                        <Badge
+                          v-else-if="movimentacaoSelecionada?.status_solicitacao === 'A'"
+                          variant="secondary"
+                          class="font-bold text-slate-500 bg-slate-100 border-slate-200"
+                        >
+                          0 (Não aceito)
+                        </Badge>
+                        <span v-else-if="movimentacaoSelecionada?.status_solicitacao === 'R'" class="text-rose-500 font-bold text-xs">
+                          Rejeitada
+                        </span>
+                        <span v-else class="text-slate-400 font-bold italic text-xs">
+                          Aguardando aceite
+                        </span>
+                      </template>
+                      <template v-else>
+                        <Badge
+                          v-if="item.quantidade_liberada > 0"
+                          class="font-black bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                        >
+                          {{ parseInt(item.quantidade_liberada) || 0 }}
+                        </Badge>
+                        <Badge
+                          v-else-if="movimentacaoSelecionada?.status_solicitacao === 'A' && (item.quantidade_liberada === 0 || item.quantidade_liberada === '0')"
+                          variant="secondary"
+                          class="font-bold text-slate-500 bg-slate-100 border-slate-200"
+                        >
+                          0 (Não atendido)
+                        </Badge>
+                        <span v-else class="text-slate-300 font-bold italic text-xs">
+                          Aguardando
+                        </span>
+                      </template>
                     </td>
                   </tr>
                 </tbody>
@@ -1609,22 +1903,29 @@ const calcularQtdDevolvida = (mov, itemId) => {
     <!-- Approval/Review View -->
     <Dialog v-model:open="dialogAprovacaoOpen">
       <DialogContent
-        class="max-w-4xl border-none p-0 overflow-hidden bg-slate-50"
+        class="max-w-4xl w-full border-none p-0 overflow-hidden bg-slate-50 shadow-2xl rounded-3xl overflow-x-hidden"
       >
         <div class="bg-emerald-600 p-6 text-white">
           <h2 class="text-xl font-black uppercase tracking-tighter">
-            Análise de Solicitação
+            {{ movimentacaoParaAprovar?.tipo === 'D' ? 'Recebimento de Devolução' : 'Análise de Solicitação' }}
           </h2>
-          <p class="text-emerald-100/80 text-xs font-bold flex items-center gap-2">
-            Setor Origem: {{ setorNome }}
-            <span class="text-emerald-200/60">â€¢</span>
-            Solicitante: <strong class="text-white">{{ movimentacaoParaAprovar?.usuario?.name || "N/A" }}</strong>
-            <span class="text-emerald-200/60">â€¢</span>
-            Setor Destino: {{ movimentacaoParaAprovar?.setor_destino?.nome_exibicao || movimentacaoParaAprovar?.setor_destino?.nome || "-" }}
+          <p class="text-emerald-100/80 text-xs font-bold flex items-center gap-2 flex-wrap">
+            <span>{{ movimentacaoParaAprovar?.tipo === 'D' ? 'Setor Devolvente:' : 'Setor Origem:' }} <strong class="text-white">{{ movimentacaoParaAprovar?.tipo === 'D' ? (movimentacaoParaAprovar?.setor_origem?.nome_exibicao || movimentacaoParaAprovar?.setor_origem?.nome || "Setor Solicitante") : setorNome }}</strong></span>
+            <span class="text-emerald-200/60">•</span>
+            <span>Solicitante: <strong class="text-white">{{ movimentacaoParaAprovar?.usuario?.name || "N/A" }}</strong></span>
+            <span class="text-emerald-200/60">•</span>
+            <span>{{ movimentacaoParaAprovar?.tipo === 'D' ? 'Setor Receptor (Você):' : 'Setor Destino:' }} <strong class="text-white">{{ movimentacaoParaAprovar?.tipo === 'D' ? setorNome : (movimentacaoParaAprovar?.setor_destino?.nome_exibicao || movimentacaoParaAprovar?.setor_destino?.nome || "-") }}</strong></span>
+          </p>
+          <p
+            v-if="movimentacaoParaAprovar?.tipo === 'D' && (movimentacaoParaAprovar?.pedido_origem_id || movimentacaoParaAprovar?.movimentacao_origem_id)"
+            class="text-xs text-amber-300 font-medium flex items-center gap-1.5 mt-2"
+          >
+            <RotateCcwIcon class="w-3.5 h-3.5 text-amber-400" />
+            Devolução referente ao Pedido #{{ movimentacaoParaAprovar?.pedido_origem_id || movimentacaoParaAprovar?.movimentacao_origem_id }}
           </p>
         </div>
 
-        <div class="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+        <div class="p-6 sm:p-8 space-y-6 max-h-[70vh] overflow-y-auto max-w-full overflow-x-hidden">
           <!-- Flow Viz -->
           <div
             class="flex items-center justify-between p-6 bg-white rounded-3xl border shadow-sm"
@@ -1636,9 +1937,13 @@ const calcularQtdDevolvida = (mov, itemId) => {
                 <TruckIcon class="w-6 h-6" />
               </div>
               <p class="text-[10px] font-black uppercase text-slate-400">
-                Origem (Você)
+                {{ movimentacaoParaAprovar?.tipo === 'D' ? 'Origem (Devolvendo)' : 'Origem (Você)' }}
               </p>
-              <p class="text-sm font-bold">{{ setorNome }}</p>
+              <p class="text-sm font-bold truncate max-w-[180px] sm:max-w-[240px]">
+                {{ movimentacaoParaAprovar?.tipo === 'D'
+                  ? (movimentacaoParaAprovar?.setor_origem?.nome_exibicao || movimentacaoParaAprovar?.setor_origem?.nome || "Setor Solicitante")
+                  : setorNome }}
+              </p>
             </div>
             <div class="flex-1 flex flex-col items-center gap-1 mx-4">
               <div class="h-[2px] w-full bg-slate-100 relative">
@@ -1649,7 +1954,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
               <Badge
                 variant="outline"
                 class="text-[9px] font-black bg-white uppercase"
-                >Pendente</Badge
+                >{{ movimentacaoParaAprovar?.tipo === 'D' ? 'Devolução Pendente' : 'Pendente' }}</Badge
               >
             </div>
             <div class="text-center space-y-2">
@@ -1659,10 +1964,12 @@ const calcularQtdDevolvida = (mov, itemId) => {
                 DEST
               </div>
               <p class="text-[10px] font-black uppercase text-emerald-500">
-                Destino
+                {{ movimentacaoParaAprovar?.tipo === 'D' ? 'Destino (Recebendo)' : 'Destino' }}
               </p>
-              <p class="text-sm font-bold text-emerald-900">
-                {{ movimentacaoParaAprovar?.setor_destino?.nome_exibicao || movimentacaoParaAprovar?.setor_destino?.nome || "-" }}
+              <p class="text-sm font-bold text-emerald-900 truncate max-w-[180px] sm:max-w-[240px]">
+                {{ movimentacaoParaAprovar?.tipo === 'D'
+                  ? setorNome
+                  : (movimentacaoParaAprovar?.setor_destino?.nome_exibicao || movimentacaoParaAprovar?.setor_destino?.nome || "-") }}
               </p>
             </div>
           </div>
@@ -1674,7 +1981,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
             >
               Conferência de Itens e Estoque
             </h3>
-            <div class="bg-white border rounded-3xl overflow-hidden shadow-sm">
+            <div class="bg-white border rounded-3xl overflow-x-auto shadow-sm">
               <table class="w-full text-sm">
                 <thead class="bg-slate-50 border-b">
                   <tr>
@@ -1686,9 +1993,10 @@ const calcularQtdDevolvida = (mov, itemId) => {
                     <th
                       class="py-3 px-6 text-center font-bold text-slate-400 text-[10px]"
                     >
-                      Solicitada
+                      {{ movimentacaoParaAprovar?.tipo === 'D' ? 'Qtd. Devolução Solicitada' : 'Solicitada' }}
                     </th>
                     <th
+                      v-if="movimentacaoParaAprovar?.tipo !== 'D'"
                       class="py-3 px-6 text-center font-bold text-slate-400 text-[10px]"
                     >
                       Seu Estoque
@@ -1702,7 +2010,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
                     <th
                       class="py-3 px-6 text-center font-bold text-slate-400 text-[10px] w-32"
                     >
-                      Liberar
+                      {{ movimentacaoParaAprovar?.tipo === 'D' ? 'Aceitar' : 'Liberar' }}
                     </th>
                   </tr>
                 </thead>
@@ -1711,9 +2019,11 @@ const calcularQtdDevolvida = (mov, itemId) => {
                     v-for="(item, idx) in itensParaAprovacao"
                     :key="idx"
                     :class="
-                      item.quantidade_liberada > item.estoque_atual
-                        ? 'bg-red-50/50'
-                        : ''
+                      item.quantidade_liberada > item.limite_maximo || item.quantidade_liberada < 0
+                        ? 'bg-red-50/60'
+                        : item.quantidade_liberada === 0
+                          ? 'bg-slate-50/50'
+                          : ''
                     "
                   >
                     <td class="py-4 px-6 font-bold text-slate-800">
@@ -1722,7 +2032,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
                     <td class="py-4 px-6 text-center font-black text-slate-500">
                       {{ item.quantidade_solicitada }}
                     </td>
-                    <td class="py-4 px-6 text-center">
+                    <td v-if="movimentacaoParaAprovar?.tipo !== 'D'" class="py-4 px-6 text-center">
                       <Badge
                         :variant="
                           item.estoque_atual > 0 ? 'secondary' : 'destructive'
@@ -1741,20 +2051,34 @@ const calcularQtdDevolvida = (mov, itemId) => {
                       <span v-else class="text-slate-300 text-xs">-</span>
                     </td>
                     <td class="py-4 px-6">
-                      <div class="relative">
+                      <div class="relative flex flex-col items-center">
                         <Input
                           type="number"
                           step="1"
                           min="0"
+                          :max="item.limite_maximo"
                           v-model.number="item.quantidade_liberada"
                           @keydown="(e) => ['e', 'E', '+', '-', '.', ','].includes(e.key) && e.preventDefault()"
-                          class="h-9 font-black text-center w-auto min-w-[5rem] px-2 mx-auto"
-                          :class="
-                            item.quantidade_liberada > item.estoque_atual
-                              ? 'border-red-500 text-red-600 bg-red-50'
-                              : 'border-emerald-200 focus:ring-emerald-500'
-                          "
+                          class="h-9 font-black text-center w-auto min-w-[5rem] px-2 mx-auto transition-colors"
+                          :class="{
+                            'border-red-500 text-red-600 bg-red-50 focus:ring-red-500': item.quantidade_liberada > item.limite_maximo || item.quantidade_liberada < 0,
+                            'border-slate-300 text-slate-400 bg-slate-50': item.quantidade_liberada === 0,
+                            'border-emerald-200 focus:ring-emerald-500 text-emerald-950 font-bold': item.quantidade_liberada > 0 && item.quantidade_liberada <= item.limite_maximo,
+                          }"
                         />
+                        <!-- Mensagem de erro: excede limite_maximo -->
+                        <span
+                          v-if="item.quantidade_liberada > item.limite_maximo"
+                          class="text-[9px] font-bold text-red-600 uppercase tracking-tight mt-1"
+                        >
+                          Máximo permitido: {{ item.limite_maximo }}
+                        </span>
+                        <span
+                          v-else-if="item.quantidade_liberada === 0"
+                          class="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-1"
+                        >
+                          {{ movimentacaoParaAprovar?.tipo === 'D' ? 'Não aceito' : 'Não liberado' }}
+                        </span>
                       </div>
                     </td>
                   </tr>
@@ -1763,38 +2087,61 @@ const calcularQtdDevolvida = (mov, itemId) => {
             </div>
           </div>
 
-          <!-- Validation Errors -->
+          <!-- Validation Errors: Quantidade excede limite máximo (solicitação ou estoque, o que for menor) -->
           <div
             v-if="
               itensParaAprovacao.some(
-                (it) => it.quantidade_liberada > it.estoque_atual,
+                (it) => it.quantidade_liberada > it.limite_maximo || it.quantidade_liberada < 0,
               )
             "
             class="p-4 bg-red-50 rounded-2xl border border-red-100 flex items-start gap-3"
           >
-            <AlertCircleIcon class="w-5 h-5 text-red-600 shrink-0" />
+            <AlertCircleIcon class="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <div class="space-y-1">
               <p class="text-sm font-black text-red-900 leading-none">
-                Erro de Disponibilidade
+                Quantidade Inválida
               </p>
               <p class="text-xs text-red-700">
-                Alguns itens possuem quantidade a liberar superior ao seu
-                estoque atual. Ajuste os valores antes de prosseguir.
+                Um ou mais itens possuem quantidade a liberar superior ao limite máximo permitido (quantidade solicitada ou estoque disponível). Ajuste os valores antes de prosseguir.
               </p>
             </div>
           </div>
 
-          <!-- Lot Preview (FIFO) -->
-          <div v-if="previewLotesData.length > 0" class="space-y-3">
-            <h3
-              class="text-xs font-black uppercase text-slate-400 tracking-widest px-1 flex items-center gap-2"
-            >
-              <CalendarIcon class="w-4 h-4" /> Lotes que serão consumidos (FIFO â€” mais antigo primeiro)
-            </h3>
+          <!-- Aviso quando todos os itens estão zerados -->
+          <div
+            v-if="
+              itensParaAprovacao.length > 0 &&
+              itensParaAprovacao.every((it) => (Number(it.quantidade_liberada) || 0) <= 0)
+            "
+            class="p-4 bg-amber-50 rounded-2xl border border-amber-200 flex items-start gap-3"
+          >
+            <AlertCircleIcon class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div class="space-y-1">
+              <p class="text-sm font-black text-amber-900 leading-none">
+                Todos os itens estão com quantidade zero
+              </p>
+              <p class="text-xs text-amber-800">
+                Para aprovar a movimentação, ao menos um item deve ter quantidade liberada maior que zero. Se nenhum item puder ser atendido por falta de estoque, rejeite a solicitação clicando em <strong>"Rejeitar Integramente"</strong>.
+              </p>
+            </div>
+          </div>
+
+          <!-- Lot Preview (FIFO) - Apenas quando a origem controla estoque e há lotes alocados -->
+          <div v-if="origemControlaEstoqueAprovacao && previewLotesVisiveis.length > 0" class="space-y-3">
+            <div class="flex items-center justify-between px-1">
+              <h3
+                class="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"
+              >
+                <CalendarIcon class="w-4 h-4" /> Lotes que serão consumidos (FIFO — mais antigo primeiro)
+              </h3>
+              <span v-if="loadingPreviewLotes" class="text-[10px] text-slate-400 flex items-center gap-1 font-medium">
+                <ClockIcon class="w-3 h-3 animate-spin" /> Atualizando lotes...
+              </span>
+            </div>
 
             <!-- No-coverage warning -->
             <div
-              v-if="previewLotesData.some((p) => p.quantidade_sem_cobertura > 0)"
+              v-if="previewLotesVisiveis.some((p) => p.quantidade_sem_cobertura > 0)"
               class="p-4 bg-amber-50 rounded-2xl border border-amber-200 flex items-start gap-3"
             >
               <AlertCircleIcon class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -1811,7 +2158,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
             </div>
 
             <div
-              v-for="preview in previewLotesData"
+              v-for="preview in previewLotesVisiveis"
               :key="preview.produto_id"
               class="bg-white border rounded-2xl overflow-hidden shadow-sm"
             >
@@ -1839,12 +2186,12 @@ const calcularQtdDevolvida = (mov, itemId) => {
                 <tbody class="divide-y">
                   <tr
                     v-for="lote in preview.lotes_a_consumir"
-                    :key="lote.lote_id"
+                    :key="lote.lote_id || lote.lote"
                     class="hover:bg-slate-50/50"
                   >
-                    <td class="py-3 px-5 font-bold text-slate-800">{{ lote.lote || "â€”" }}</td>
+                    <td class="py-3 px-5 font-bold text-slate-800">{{ lote.lote || "—" }}</td>
                     <td class="py-3 px-5 text-center text-slate-600">
-                      {{ lote.data_vencimento ? new Date(lote.data_vencimento).toLocaleDateString('pt-BR') : "â€”" }}
+                      {{ lote.data_vencimento ? new Date(lote.data_vencimento).toLocaleDateString('pt-BR') : (lote.data_validade ? new Date(lote.data_validade).toLocaleDateString('pt-BR') : "—") }}
                     </td>
                     <td class="py-3 px-5 text-center">
                       <Badge variant="secondary" class="font-black text-[10px]">{{ lote.quantidade_disponivel }}</Badge>
@@ -1883,13 +2230,13 @@ const calcularQtdDevolvida = (mov, itemId) => {
               :disabled="
                 loadingAprovacao ||
                 itensParaAprovacao.some(
-                  (it) => it.quantidade_liberada > it.estoque_atual,
+                  (it) => it.quantidade_liberada > it.limite_maximo || it.quantidade_liberada < 0,
                 ) ||
-                itensParaAprovacao.every((it) => it.quantidade_liberada <= 0)
+                itensParaAprovacao.every((it) => (Number(it.quantidade_liberada) || 0) <= 0)
               "
             >
               <CheckCircle2Icon v-if="!loadingAprovacao" class="w-4 h-4" />
-              {{ loadingAprovacao ? "Processando..." : "Confirmar Liberação" }}
+              {{ loadingAprovacao ? "Processando..." : (movimentacaoParaAprovar?.tipo === 'D' ? "Confirmar Recebimento" : "Confirmar Liberação") }}
             </Button>
           </div>
         </DialogFooter>

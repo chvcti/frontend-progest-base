@@ -190,6 +190,8 @@ const formattedEstoque = computed(() => {
   return estoqueItems.value.map((item) => ({
     id: item.estoque_id,
     produto: item.produto?.nome_completo || item.produto?.nome || "N/A",
+    codigo_simpas: item.produto?.codigo_simpas || "",
+    codigo_barras: item.produto?.codigo_barras || "",
     grupo: item.produto?.grupo_produto?.nome || "N/A",
     quantidade_atual: item.quantidade_atual || 0,
     quantidade_minima: item.quantidade_minima || 0,
@@ -222,7 +224,9 @@ const filteredEstoque = computed(() => {
     result = result.filter(
       (item) =>
         item.produto.toLowerCase().includes(term) ||
-        item.grupo.toLowerCase().includes(term),
+        item.grupo.toLowerCase().includes(term) ||
+        (item.codigo_simpas && item.codigo_simpas.toLowerCase().includes(term)) ||
+        (item.codigo_barras && item.codigo_barras.toLowerCase().includes(term)),
     );
   }
   
@@ -523,14 +527,30 @@ watch(searchQuery, () => {
                     class="hover:bg-slate-50/50 transition-colors cursor-pointer group"
                   >
                     <td class="py-4 px-6">
-                      <div class="flex flex-col">
+                      <div class="flex flex-col gap-1">
                         <span class="font-bold text-slate-800">{{
                           item.produto
                         }}</span>
-                        <span
-                          class="text-[10px] text-slate-400 font-medium md:hidden"
-                          >{{ item.grupo }}</span
-                        >
+                        <div class="flex flex-wrap items-center gap-1.5">
+                          <span
+                            v-if="item.codigo_simpas"
+                            class="text-[10px] font-mono text-slate-600 font-semibold bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded"
+                            :title="`Código SIMPAS: ${item.codigo_simpas}`"
+                          >
+                            SIMPAS: {{ item.codigo_simpas }}
+                          </span>
+                          <span
+                            v-if="item.codigo_barras"
+                            class="text-[10px] font-mono text-slate-500 font-medium bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded"
+                            :title="`Código de Barras: ${item.codigo_barras}`"
+                          >
+                            EAN: {{ item.codigo_barras }}
+                          </span>
+                          <span
+                            class="text-[10px] text-slate-400 font-medium md:hidden"
+                            >{{ item.grupo }}</span
+                          >
+                        </div>
                       </div>
                     </td>
                     <td class="py-4 px-6 hidden md:table-cell">

@@ -47,7 +47,7 @@
               <Input
                 type="text"
                 v-model="searchQuery"
-                @input="filterProducts"
+                @input="onSearchInput"
                 placeholder="Filtrar por nome, código..."
               />
             </div>
@@ -55,7 +55,7 @@
               variant="outline"
               size="icon"
               class="flex-shrink-0 h-10 w-10"
-              @click="filterProducts"
+              @click="triggerSearch"
             >
               <i class="mdi mdi-magnify text-lg"></i>
             </Button>
@@ -77,7 +77,7 @@
       >
         <i class="mdi mdi-magnify-close text-4xl mb-2 block"></i>
         <p v-if="searchQuery">Nenhum produto encontrado para "{{ searchQuery }}".</p>
-        <p v-else>Nenhum produto disponível para este tipo.</p>
+        <p v-else>Nenhum produto cadastrado para este tipo.</p>
       </div>
 
       <Card
@@ -266,6 +266,22 @@ const handleTipoChange = async (newTipo) => {
   await fetchProducts();
 };
 
+let debounceTimeout = null;
+
+const onSearchInput = () => {
+  if (debounceTimeout) clearTimeout(debounceTimeout);
+  debounceTimeout = setTimeout(() => {
+    currentPage.value = 1;
+    fetchProducts();
+  }, 300);
+};
+
+const triggerSearch = () => {
+  if (debounceTimeout) clearTimeout(debounceTimeout);
+  currentPage.value = 1;
+  fetchProducts();
+};
+
 const fetchProducts = async () => {
   if (!tipoLocal.value) {
     products.value = [];
@@ -275,27 +291,34 @@ const fetchProducts = async () => {
   loading.value = true;
   try {
     const token = localStorage.getItem("token");
+    const payload = {
+      filters: { tipo_produto: tipoLocal.value, status: "A" },
+      sort_by: "nome",
+      sort_dir: "asc",
+      per_page: 1000,
+      page: currentPage.value,
+    };
+
+    if (searchQuery.value && searchQuery.value.trim()) {
+      payload.search = searchQuery.value.trim();
+    }
+
     const response = await axios.post(
       "/produtos/list",
-      {
-        filters: { tipo_produto: tipoLocal.value, status: "A" },
-        sort_by: "nome",
-        sort_dir: "asc",
-        per_page: 50,
-        page: currentPage.value,
-      },
+      payload,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
     if (response.data.status) {
       const data = response.data.data;
+      const meta = response.data.meta;
       const lista = Array.isArray(data) ? data : data.data || [];
       if (currentPage.value === 1) {
         products.value = lista;
       } else {
         products.value = [...products.value, ...lista];
       }
-      hasMoreProducts.value = !Array.isArray(data) && data.current_page < data.last_page;
+      hasMoreProducts.value = meta ? meta.current_page < meta.last_page : false;
     }
   } catch (error) {
     console.error("Erro ao buscar produtos:", error);
@@ -314,10 +337,6 @@ const loadMoreProducts = async () => {
   currentPage.value++;
   await fetchProducts();
   loadingMore.value = false;
-};
-
-const filterProducts = () => {
-  // A filtragem é feita via computed property
 };
 
 const handleAddItem = (product) => {

@@ -23,6 +23,7 @@
                   <th scope="col" class="px-4 py-3">Produto</th>
                   <th scope="col" class="px-4 py-3 text-center">Lote</th>
                   <th scope="col" class="px-4 py-3 text-center">Liberado</th>
+                  <th scope="col" class="px-4 py-3 text-center">Saldo Devolvível</th>
                   <th scope="col" class="px-4 py-3 text-center w-32">A Devolver</th>
                 </tr>
               </thead>
@@ -34,19 +35,24 @@
                   <td class="px-4 py-3 text-center text-xs text-slate-500 font-mono font-medium">
                     {{ formatarLote(item.loteStr, item.lotesParsed) }}
                   </td>
-                  <td class="px-4 py-3 text-center font-bold text-emerald-600">
+                  <td class="px-4 py-3 text-center font-bold text-slate-700">
                     {{ item.quantidade_liberada }}
+                  </td>
+                  <td class="px-4 py-3 text-center font-bold" :class="item.saldo_devoluvel > 0 ? 'text-emerald-600' : 'text-slate-400'">
+                    <span v-if="item.saldo_devoluvel > 0">{{ item.saldo_devoluvel }}</span>
+                    <span v-else class="text-xs text-slate-400 italic">Totalmente devolvido</span>
                   </td>
                   <td class="px-4 py-3 text-center">
                     <Input
                       type="number"
                       step="1"
                       min="0"
-                      :max="item.quantidade_liberada"
+                      :max="item.saldo_devoluvel"
                       v-model.number="item.quantidade_devolvendo"
                       @keydown="(e) => ['e', 'E', '+', '-', '.', ','].includes(e.key) && e.preventDefault()"
                       class="h-8 text-center w-auto min-w-[5rem] px-2 mx-auto"
-                      :class="{'border-red-500': item.quantidade_devolvendo > item.quantidade_liberada}"
+                      :class="{'border-red-500 text-red-600': item.quantidade_devolvendo > item.saldo_devoluvel || item.quantidade_devolvendo < 0}"
+                      :disabled="item.saldo_devoluvel <= 0"
                     />
                   </td>
                 </tr>
@@ -65,7 +71,7 @@
         </div>
 
         <div v-if="erroExcede" class="mt-3 text-sm text-red-600 font-medium">
-          <i class="mdi mdi-alert-circle mr-1"></i> A quantidade a devolver não pode exceder a quantidade liberada.
+          <i class="mdi mdi-alert-circle mr-1"></i> A quantidade a devolver não pode superar o saldo atendido disponível.
         </div>
         <div v-if="erroZero" class="mt-3 text-sm text-amber-600 font-medium">
           <i class="mdi mdi-alert-circle mr-1"></i> Preencha a quantidade de pelo menos um item para devolução.
@@ -123,18 +129,37 @@ const loading = ref(false);
 const motivo = ref("");
 const itensParaDevolver = ref([]);
 
+const calcularTotalJaDevolvido = (mov, item) => {
+  if (item.quantidade_devolvida !== undefined && item.quantidade_devolvida !== null) {
+    return Number(item.quantidade_devolvida) || 0;
+  }
+  if (mov && Array.isArray(mov.devolucoes)) {
+    return mov.devolucoes
+      .filter((d) => d.item_movimentacao_id === item.id)
+      .reduce((acc, d) => acc + (Number(d.quantidade) || 0), 0);
+  }
+  return 0;
+};
+
 watch(() => props.movimentacao, (newMov) => {
   if (newMov) {
     dialogOpen.value = true;
     motivo.value = "";
-    itensParaDevolver.value = (newMov.itens || []).map(item => ({
-      item_movimentacao_id: item.id,
-      nome: item.produto?.nome || `Produto #${item.produto_id}`,
-      loteStr: item.numero_lote || item.lote,
-      lotesParsed: item.lotes_parsed,
-      quantidade_liberada: Number(item.quantidade_liberada),
-      quantidade_devolvendo: 0
-    }));
+    itensParaDevolver.value = (newMov.itens || []).map(item => {
+      const qtdLiberada = Number(item.quantidade_liberada) || 0;
+      const totalDevolvido = calcularTotalJaDevolvido(newMov, item);
+      const saldoDevoluvel = Math.max(0, qtdLiberada - totalDevolvido);
+      return {
+        item_movimentacao_id: item.id,
+        nome: item.produto?.nome || `Produto #${item.produto_id}`,
+        loteStr: item.numero_lote || item.lote,
+        lotesParsed: item.lotes_parsed,
+        quantidade_liberada: qtdLiberada,
+        total_devolvido: totalDevolvido,
+        saldo_devoluvel: saldoDevoluvel,
+        quantidade_devolvendo: 0
+      };
+    });
   } else {
     dialogOpen.value = false;
   }
@@ -146,32 +171,43 @@ const fecharModal = () => {
 };
 
 const erroExcede = computed(() => {
-  return itensParaDevolver.value.some(item => Number(item.quantidade_devolvendo) > item.quantidade_liberada);
+  return itensParaDevolver.value.some(
+    item => Number(item.quantidade_devolvendo) > item.saldo_devoluvel || Number(item.quantidade_devolvendo) < 0
+  );
 });
 
 const erroZero = computed(() => {
-  return itensParaDevolver.value.every(item => Number(item.quantidade_devolvendo) <= 0);
+  return itensParaDevolver.value.every(item => (Number(item.quantidade_devolvendo) || 0) <= 0);
 });
+
+const limparStringLote = (str) => {
+  if (!str) return "";
+  let res = String(str).trim();
+  res = res.replace(/\s*\([Vv]alidade:?[^)]*\)/g, "");
+  res = res.replace(/\s*-\s*[Vv]alidade:?.*$/i, "");
+  res = res.replace(/^[Ll]ote:\s*/i, "");
+  return res.trim();
+};
 
 const formatarLote = (loteStr, lotesParsed) => {
   if (Array.isArray(lotesParsed) && lotesParsed.length > 0) {
-    return lotesParsed.map((l) => l.numero_lote || l.lote).filter(Boolean).join(", ") || "—";
+    return lotesParsed.map((l) => limparStringLote(l.numero_lote || l.lote)).filter(Boolean).join(", ") || "—";
   }
   if (!loteStr) return "—";
   if (typeof loteStr === "object") {
     return Array.isArray(loteStr)
-      ? loteStr.map((l) => l.numero_lote || l.lote).join(", ")
-      : (loteStr.numero_lote || loteStr.lote || "—");
+      ? loteStr.map((l) => limparStringLote(l.numero_lote || l.lote)).filter(Boolean).join(", ")
+      : (limparStringLote(loteStr.numero_lote || loteStr.lote) || "—");
   }
   try {
     const lotes = JSON.parse(loteStr);
     if (Array.isArray(lotes)) {
-      return lotes.map((l) => `${l.numero_lote || l.lote}`).join(", ");
+      return lotes.map((l) => limparStringLote(l.numero_lote || l.lote)).filter(Boolean).join(", ") || "—";
     }
   } catch (e) {
     // string simples de lote
   }
-  return String(loteStr);
+  return limparStringLote(loteStr) || "—";
 };
 
 const confirmarDevolucao = async () => {

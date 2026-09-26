@@ -134,10 +134,27 @@ const isCAF = computed(() => {
   return nome.includes("CAF") || nome.includes("FARMÁCIA CENTRAL") || nome.includes("FARMACIA CENTRAL");
 });
 
-// Watchers
-watch(isSolicitante, (val) => {
-  if (val && !["overview", "estoque"].includes(activeTab.value))
+// Sigilo de Estoque Seletivo:
+// Admins e Almoxarifes sempre visualizam;
+// Solicitantes só visualizam se o setor atual controlar estoque físico.
+const exibirAbaEstoque = computed(() => {
+  if (isAdminUser.value || isAlmoxarife.value || store.getters.isSuperAdmin || store.state.user?.is_super_admin) {
+    return true;
+  }
+  return Boolean(setor.value?.estoque);
+});
+
+// Watchers de abas permitidas
+watch([isSolicitante, exibirAbaEstoque], () => {
+  if (isSolicitante.value) {
+    const permitidas = ["overview"];
+    if (exibirAbaEstoque.value) permitidas.push("estoque");
+    if (!permitidas.includes(activeTab.value)) {
+      activeTab.value = "overview";
+    }
+  } else if (!exibirAbaEstoque.value && activeTab.value === "estoque") {
     activeTab.value = "overview";
+  }
 });
 
 watch([isAdminUser, isSolicitante, isAlmoxarife], () => {
@@ -150,6 +167,9 @@ watch(
   () => route.query.tab,
   (newTab) => {
     let tab = newTab || "overview";
+    if (tab === "estoque" && !exibirAbaEstoque.value) {
+      tab = "overview";
+    }
     if (tab === "usuarios" && (!isAdminUser.value || isSolicitante.value || isAlmoxarife.value)) {
       tab = "overview";
     }
@@ -158,6 +178,9 @@ watch(
 );
 
 const changeTab = (tab) => {
+  if (tab === "estoque" && !exibirAbaEstoque.value) {
+    tab = "overview";
+  }
   if (tab === "usuarios" && (!isAdminUser.value || isSolicitante.value || isAlmoxarife.value)) {
     tab = "overview";
   }
@@ -244,6 +267,9 @@ const loadSetorDetails = async () => {
   
   loading.value = false;
   let initialTab = route.query.tab || "overview";
+  if (initialTab === "estoque" && !exibirAbaEstoque.value) {
+    initialTab = "overview";
+  }
   if (initialTab === "usuarios" && (!isAdminUser.value || isSolicitante.value || isAlmoxarife.value)) {
     initialTab = "overview";
   }
@@ -314,7 +340,7 @@ onUnmounted(() => {
               </TabsTrigger>
 
               <TabsTrigger
-                v-if="setor.estoque"
+                v-if="exibirAbaEstoque"
                 value="estoque"
                 class="gap-2 px-6 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all duration-300 rounded-lg"
               >
@@ -361,7 +387,7 @@ onUnmounted(() => {
               />
             </TabsContent>
 
-            <TabsContent value="estoque" class="mt-0">
+            <TabsContent v-if="exibirAbaEstoque" value="estoque" class="mt-0">
               <TabEstoque :readOnly="isSolicitante" @reload-estoque="carregarDadosOperacionais" />
             </TabsContent>
 

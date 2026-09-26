@@ -82,9 +82,9 @@
               <Badge :variant="getStatusVariant(pedido.status_solicitacao)">
                 {{ getStatusLabel(pedido.status_solicitacao) }}
               </Badge>
-              <Badge v-if="pedido.tipo === 'D' || pedido.pedido_origem_id" variant="outline" class="border-amber-400 text-amber-900 bg-amber-50 font-bold px-2.5 py-0.5 shadow-xs text-xs">
+              <Badge v-if="pedido.tipo === 'D' && (pedido.pedido_origem_id || extrairPedidoRef(pedido))" variant="outline" class="border-amber-400 text-amber-900 bg-amber-50 font-bold px-2.5 py-0.5 shadow-xs text-xs">
                 <i class="mdi mdi-keyboard-return mr-1 text-amber-600"></i>
-                Devolução ref. ao Pedido #{{ pedido.pedido_origem_id || extrairPedidoRef(pedido) }}
+                Devolução referente ao Pedido #{{ pedido.pedido_origem_id || extrairPedidoRef(pedido) }}
               </Badge>
               <Badge v-else-if="pedido.tem_devolucao" variant="outline" class="border-amber-500 text-amber-700 bg-amber-50">
                 <i class="mdi mdi-keyboard-return mr-1"></i> Possui Devoluções
@@ -210,9 +210,9 @@
                   <i class="mdi mdi-printer text-lg"></i>
                 </Button>
 
-                <!-- APROVADO: Devolver -->
+                <!-- APROVADO: Devolver (Apenas para pedidos que não sejam devolução) -->
                 <Button
-                  v-if="pedido.status_solicitacao === 'A'"
+                  v-if="(pedido.status === 'A' || pedido.status_solicitacao === 'A') && pedido.tipo !== 'D'"
                   variant="outline"
                   size="sm"
                   @click.stop="abrirModalDevolucao(pedido)"
@@ -272,7 +272,6 @@
                       <th class="py-2.5 px-3 text-center">Lote</th>
                       <th class="py-2.5 px-3 text-center">Validade</th>
                       <th class="py-2.5 px-3 text-right">Qtd Solicitada</th>
-                      <th class="py-2.5 px-3 text-right">Qtd Atendida</th>
                       <th v-if="pedido.status_solicitacao === 'A'" class="py-2.5 px-3 text-right">Qtd Devolvida</th>
                     </tr>
                   </thead>
@@ -296,12 +295,6 @@
                       <td class="py-2.5 px-3 text-right text-slate-700 font-medium">
                         {{ item.quantidade_solicitada }}
                       </td>
-                      <td class="py-2.5 px-3 text-right">
-                        <span v-if="Number(item.quantidade_liberada) > 0" class="text-emerald-700 font-semibold">
-                          {{ item.quantidade_liberada }}
-                        </span>
-                        <span v-else class="text-slate-400">-</span>
-                      </td>
                       <td v-if="pedido.status_solicitacao === 'A'" class="py-2.5 px-3 text-right">
                         <span
                           v-if="calcularQtdDevolvida(pedido, item) > 0"
@@ -324,10 +317,10 @@
                 <div class="space-y-2">
                   <div v-for="dev in pedido.devolucoes" :key="dev.id" class="text-xs text-slate-700 flex flex-wrap gap-x-3 gap-y-1.5 items-center bg-white border border-amber-200 p-2.5 rounded-md shadow-xs">
                     <Badge variant="outline" class="font-bold text-amber-900 bg-amber-100 border-amber-300">
-                      Devolução ref. ao Pedido #{{ dev.numero_pedido || dev.pedido_origem_id || dev.pedido_id || pedido.id }}
+                      Devolução referente ao Pedido #{{ pedido.pedido_origem_id || extrairPedidoRef(pedido) || pedido.id }}
                     </Badge>
                     <span><strong>Item:</strong> {{ pedido.itens?.find(i => i.id === dev.item_movimentacao_id)?.produto?.nome || 'Item #' + dev.item_movimentacao_id }}</span>
-                    <span><strong>Lote:</strong> <span class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono font-medium">{{ dev.lote }}</span></span>
+                    <span><strong>Lote:</strong> <span class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono font-medium">{{ formatarItemLote({ lote: dev.lote }) }}</span></span>
                     <span><strong>Qtd:</strong> <span class="text-amber-800 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">{{ dev.quantidade }} un</span></span>
                     <span class="text-slate-500"><strong>Data:</strong> {{ formatDate(dev.created_at) }}</span>
                     <span v-if="dev.usuario" class="text-muted-foreground"><strong>Por:</strong> {{ dev.usuario.name }}</span>
@@ -460,47 +453,131 @@ const extrairObservacaoLimpa = (obs) => {
 const extrairPedidoRef = (pedido) => {
   if (pedido.pedido_origem_id) return pedido.pedido_origem_id;
   if (pedido.observacao) {
-    const match = pedido.observacao.match(/Pedido\s*#?(\d+)/i);
+    const match = pedido.observacao.match(/pedido\s*#?(\d+)/i);
     if (match) return match[1];
   }
-  return pedido.numero_pedido || pedido.id;
+  return null;
+};
+
+const limparStringLote = (str) => {
+  if (!str) return "";
+  let res = String(str).trim();
+  // Remove qualquer sufixo redundante como (Validade: DD/MM/AAAA) ou - Validade:...
+  res = res.replace(/\s*\([Vv]alidade:?[^)]*\)/g, "");
+  res = res.replace(/\s*-\s*[Vv]alidade:?.*$/i, "");
+  // Remove prefixo Lote: se houver
+  res = res.replace(/^[Ll]ote:\s*/i, "");
+  return res.trim();
+};
+
+const formatarLoteAmigavel = (rawLote) => {
+  if (!rawLote) return "-";
+
+  // Se já for array ou objeto
+  if (typeof rawLote === "object") {
+    if (Array.isArray(rawLote)) {
+      if (rawLote.length === 0) return "-";
+      return (
+        rawLote
+          .map((l) => {
+            const val = l.lote || l.numero_lote || (typeof l === "string" ? l : "");
+            return limparStringLote(val);
+          })
+          .filter(Boolean)
+          .join(", ") || "-"
+      );
+    }
+
+    const val = rawLote.lote || rawLote.numero_lote || "";
+    return limparStringLote(val) || "-";
+  }
+
+  // Se for string
+  if (typeof rawLote === "string") {
+    const trimmed = rawLote.trim();
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return formatarLoteAmigavel(parsed);
+      } catch (e) {
+        return limparStringLote(trimmed) || "-";
+      }
+    }
+    return limparStringLote(trimmed) || "-";
+  }
+
+  return limparStringLote(String(rawLote)) || "-";
 };
 
 const formatarItemLote = (item) => {
-  if (item.numero_lote) return item.numero_lote;
-  if (!item.lote) return "-";
-  if (typeof item.lote === "string") {
-    try {
-      const parsed = JSON.parse(item.lote);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((l) => l.numero_lote || l.lote).filter(Boolean).join(", ") || "-";
-      }
-      if (parsed && (parsed.numero_lote || parsed.lote)) {
-        return parsed.numero_lote || parsed.lote;
-      }
-    } catch (e) {
-      return item.lote;
-    }
-  }
+  if (!item) return "-";
   if (Array.isArray(item.lotes_parsed) && item.lotes_parsed.length > 0) {
-    return item.lotes_parsed.map((l) => l.numero_lote || l.lote).filter(Boolean).join(", ");
+    return formatarLoteAmigavel(item.lotes_parsed);
   }
-  return String(item.lote || "-");
+  if (item.lote) {
+    return formatarLoteAmigavel(item.lote);
+  }
+  if (item.numero_lote) {
+    return formatarLoteAmigavel(item.numero_lote);
+  }
+  return "-";
 };
 
 const formatarItemValidade = (item) => {
-  if (item.validade) return item.validade;
-  if (Array.isArray(item.lotes_parsed) && item.lotes_parsed[0]?.validade) {
-    return item.lotes_parsed[0].validade;
+  if (!item) return "-";
+  if (item.validade) {
+    try {
+      const d = new Date(item.validade);
+      if (!isNaN(d.getTime()) && String(item.validade).includes("-")) {
+        return d.toLocaleDateString("pt-BR");
+      }
+    } catch (e) {}
+    return item.validade;
+  }
+  if (Array.isArray(item.lotes_parsed) && item.lotes_parsed.length > 0) {
+    const validades = item.lotes_parsed
+      .map((lp) => {
+        const val = lp.data_vencimento || lp.validade || lp.data_validade;
+        if (!val) return null;
+        try {
+          const d = new Date(val);
+          if (!isNaN(d.getTime())) return d.toLocaleDateString("pt-BR");
+        } catch (e) {}
+        return val;
+      })
+      .filter(Boolean);
+    if (validades.length > 0) return [...new Set(validades)].join(", ");
   }
   if (typeof item.lote === "string") {
     try {
       const parsed = JSON.parse(item.lote);
-      if (Array.isArray(parsed) && parsed[0]?.validade) {
-        return parsed[0].validade;
+      if (Array.isArray(parsed)) {
+        const validades = parsed
+          .map((lp) => {
+            const val = lp.data_vencimento || lp.validade || lp.data_validade;
+            if (!val) return null;
+            try {
+              const d = new Date(val);
+              if (!isNaN(d.getTime())) return d.toLocaleDateString("pt-BR");
+            } catch (e) {}
+            return val;
+          })
+          .filter(Boolean);
+        if (validades.length > 0) return [...new Set(validades)].join(", ");
+      } else if (parsed && typeof parsed === "object") {
+        const val = parsed.data_vencimento || parsed.validade || parsed.data_validade;
+        if (val) {
+          try {
+            const d = new Date(val);
+            if (!isNaN(d.getTime())) return d.toLocaleDateString("pt-BR");
+          } catch (e) {}
+          return val;
+        }
       }
     } catch (e) {
-      return "-";
+      // Caso a data esteja em formato de texto dentro de item.lote, ex: (Validade: DD/MM/AAAA)
+      const match = item.lote.match(/[Vv]alidade:\s*([0-9\/\-]+)/);
+      if (match && match[1]) return match[1];
     }
   }
   return "-";
