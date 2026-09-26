@@ -20,6 +20,7 @@ import {
   LayersIcon,
   BoxSelectIcon,
   FilterIcon,
+  BarcodeIcon,
 } from "lucide-vue-next";
 import {
   AlertDialog,
@@ -47,8 +48,20 @@ const varsModalData = {
   unidade_medida_id: "",
 };
 
+const formatarSimpas = (codigo) => {
+  if (!codigo) return "—";
+  const str = String(codigo).trim();
+  // Formato SIMPAS Oficial Bahia: XX.XX.XX.XXXXXXXX-X (15 dígitos)
+  if (/^\d{15}$/.test(str)) {
+    return `${str.slice(0, 2)}.${str.slice(2, 4)}.${str.slice(4, 6)}.${str.slice(6, 14)}-${str.slice(14)}`;
+  }
+  return str;
+};
+
 const columns = [
   { key: "id", label: "#", align: "center", sortable: true },
+  { key: "codigo_simpas", label: "Cód. SIMPAS", align: "center", sortable: true },
+  { key: "codigo_barras", label: "Cód. Barras", align: "center", sortable: true },
   { key: "nome", label: "Produto", sortable: true },
   { key: "marca", label: "Marca", sortable: true },
   { key: "grupo_produto", label: "Grupo", sortable: true },
@@ -112,6 +125,8 @@ const listProdutos = computed(() => {
 const formattedProdutos = computed(() => {
   return listProdutos.value.map((produto) => ({
     id: produto.id,
+    codigo_simpas: produto.codigo_simpas || "",
+    codigo_barras: produto.codigo_barras || "",
     nome: produto.nome,
     marca: produto.marca || "N/A",
     grupo_produto: produto.grupo_produto?.nome || "—",
@@ -320,6 +335,29 @@ onMounted(() => {
               >
                 {{ item.status }}
               </Badge>
+            </template>
+
+            <template #cell-codigo_simpas="{ item }">
+              <span
+                v-if="item.codigo_simpas"
+                class="inline-block font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200"
+                :title="`Código SIMPAS: ${item.codigo_simpas}`"
+              >
+                {{ formatarSimpas(item.codigo_simpas) }}
+              </span>
+              <span v-else class="text-xs text-slate-300 font-mono">—</span>
+            </template>
+
+            <template #cell-codigo_barras="{ item }">
+              <span
+                v-if="item.codigo_barras"
+                class="inline-flex items-center gap-1 font-mono text-[11px] font-medium px-2 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200"
+                :title="`Código de Barras: ${item.codigo_barras}`"
+              >
+                <BarcodeIcon class="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                {{ item.codigo_barras }}
+              </span>
+              <span v-else class="text-xs text-slate-300 font-mono">—</span>
             </template>
 
             <template #cell-nome="{ item }">

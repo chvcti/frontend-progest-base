@@ -42,7 +42,7 @@
                   >
                     <SelectValue placeholder="Selecione um fornecedor" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" class="!z-[9999] z-[9999] max-h-72">
                     <div
                       class="px-2 py-2 sticky top-0 bg-white border-b z-10"
                       @keydown.stop
@@ -56,7 +56,7 @@
                     <SelectItem
                       v-for="fornecedor in fornecedoresFiltrados"
                       :key="fornecedor.id"
-                      :value="fornecedor.id"
+                      :value="String(fornecedor.id)"
                     >
                       {{ fornecedorLabel(fornecedor) }}
                     </SelectItem>
@@ -177,15 +177,16 @@
                 <span class="text-danger">*</span>
               </Label>
               <div class="flex gap-2">
-                <div class="flex-1">
+                <div class="flex-1 min-w-0">
                   <Select v-model="produtoSelecionadoId">
                     <SelectTrigger
                       id="produtoSelect"
                       :disabled="produtosDisponiveis.length === 0"
+                      class="w-full"
                     >
-                      <SelectValue placeholder="Selecione um produto" />
+                      <SelectValue placeholder="Selecione um produto" class="truncate" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" class="!z-[9999] z-[9999] max-h-72">
                       <div
                         class="px-2 py-2 sticky top-0 bg-white border-b z-10"
                         @keydown.stop
@@ -199,7 +200,7 @@
                       <SelectItem
                         v-for="produto in produtosFiltrados"
                         :key="produto.id"
-                        :value="produto.id"
+                        :value="String(produto.id)"
                       >
                         {{ produtoLabel(produto) }}
                       </SelectItem>
@@ -218,6 +219,7 @@
                   type="button"
                   @click="toggleProdutoForm"
                   title="Cadastrar novo produto"
+                  class="shrink-0"
                 >
                   <i class="mdi mdi-plus"></i>
                 </Button>
@@ -237,7 +239,7 @@
                 v-model.number="itemAtual.quantidade"
                 @keydown="(e) => ['e', 'E', '+', '-', '.', ','].includes(e.key) && e.preventDefault()"
                 placeholder="Ex: 100"
-                class="w-auto min-w-[5rem] px-2"
+                class="w-full px-3"
               />
             </div>
 
@@ -273,16 +275,18 @@
                   </button>
                 </div>
                 <!-- Campo de valor -->
-                <div class="relative">
-                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">R$</span>
+                <div class="flex items-center">
+                  <span class="inline-flex items-center px-3 h-10 rounded-l-md border border-r-0 border-slate-200 bg-slate-50 text-slate-500 text-sm select-none font-medium">
+                    R$
+                  </span>
                   <Input
+                    class="rounded-l-none h-10"
                     id="produtoValor"
+                    placeholder="0,00"
+                    step="0.01"
                     type="number"
                     min="0"
-                    step="0.01"
                     v-model="itemAtual.valor"
-                    placeholder="0,00"
-                    class="pl-9"
                   />
                 </div>
                 <!-- Preview do valor unitario quando modo total -->
@@ -373,7 +377,7 @@
                       <SelectItem
                         v-for="grupo in gruposDisponiveis"
                         :key="grupo.id"
-                        :value="grupo.id"
+                        :value="String(grupo.id)"
                       >
                         {{ grupo.nome }}
                       </SelectItem>
@@ -403,7 +407,7 @@
                       <SelectItem
                         v-for="unidade in unidadesMedidaDisponiveis"
                         :key="unidade.id"
-                        :value="unidade.id"
+                        :value="String(unidade.id)"
                       >
                         {{ unidade.nome }}
                       </SelectItem>
@@ -865,12 +869,14 @@ export default {
       let base = this.normalizarLista(this.$store.state.listProdutos)
         .filter(p => p.status === 'A' || p.status === 'Ativo' || this.localData?.itens?.some(i => i.produto_id == p.id));
 
-      // Filtrar por tipo de grupo se setorTipo estiver definido
-      if (this.setorTipo) {
+      // Filtrar por tipo de grupo se setorTipo for restritivo ('Medicamento' ou 'Material')
+      // Setores do tipo 'Ambos' (como a CAF) recebem tanto medicamentos quanto materiais
+      const tipoSetor = (this.setorTipo || "").trim().toLowerCase();
+      if (tipoSetor && tipoSetor !== "ambos" && tipoSetor !== "geral" && tipoSetor !== "todos") {
         const gruposDoTipo = this.normalizarLista(
           this.$store.state.listGrupoProdutos,
         )
-          .filter((grupo) => grupo.tipo === this.setorTipo)
+          .filter((grupo) => (grupo.tipo || "").toLowerCase() === tipoSetor)
           .map((grupo) => grupo.id);
 
         base = base.filter((produto) =>
@@ -900,7 +906,11 @@ export default {
       );
     },
     gruposDisponiveis() {
-      const base = this.normalizarLista(this.$store.state.listGrupoProdutos);
+      let base = this.normalizarLista(this.$store.state.listGrupoProdutos);
+      const tipoSetor = (this.setorTipo || "").trim().toLowerCase();
+      if (tipoSetor && tipoSetor !== "ambos" && tipoSetor !== "geral" && tipoSetor !== "todos") {
+        base = base.filter((g) => (g.tipo || "").toLowerCase() === tipoSetor);
+      }
       const custom = this.gruposCustom.filter(
         (item) => !base.some((baseItem) => baseItem.id === item.id),
       );
@@ -929,6 +939,11 @@ export default {
     },
   },
   watch: {
+    open(value) {
+      if (value) {
+        this.ensureDadosDependencias();
+      }
+    },
     "form.fornecedorId"(value) {
       if (value) {
         this.fornecedorErro = "";
@@ -946,16 +961,21 @@ export default {
   },
   methods: {
     ensureDadosDependencias() {
-      if (this.fornecedoresDisponiveis.length === 0) {
+      const produtosNoStore = this.normalizarLista(this.$store.state.listProdutos);
+      const fornecedoresNoStore = this.normalizarLista(this.$store.state.listFornecedores);
+      const unidadesNoStore = this.normalizarLista(this.$store.state.listUnidadesMedida);
+      const gruposNoStore = this.normalizarLista(this.$store.state.listGrupoProdutos);
+
+      if (fornecedoresNoStore.length === 0) {
         cadFornecedores.listAll(this);
       }
-      if (this.produtosDisponiveis.length === 0) {
+      if (produtosNoStore.length === 0) {
         cadProdutos.listAll(this);
       }
-      if (this.unidadesMedidaDisponiveis.length === 0) {
+      if (unidadesNoStore.length === 0) {
         cadUnidadesMedida.listAll(this);
       }
-      if (this.gruposDisponiveis.length === 0) {
+      if (gruposNoStore.length === 0) {
         cadGrupoProduto.listAll(this);
       }
     },
@@ -1357,7 +1377,7 @@ export default {
       }
 
       const produto = this.produtosDisponiveis.find(
-        (item) => item.id === this.produtoSelecionadoId,
+        (item) => String(item.id) === String(this.produtoSelecionadoId),
       );
 
       if (!produto) {
@@ -1413,7 +1433,7 @@ export default {
     },
     editarProduto(item) {
       // Preencher os campos do formulário com os dados do item para edição
-      this.produtoSelecionadoId = item.produto_id;
+      this.produtoSelecionadoId = item.produto_id ? String(item.produto_id) : "";
       this.itemAtual = {
         quantidade: item.quantidade,
         lote: item.lote,
