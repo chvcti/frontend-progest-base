@@ -121,7 +121,7 @@
                                     <th>Qtd. Solicitada</th>
                                     <th>Qtd. Liberada</th>
                                     <th>Produto</th>
-                                    <th>Cód. simpas</th>
+                                    <th>Cód. SIMPAS</th>
                                     <th>Cód. Barras</th>
                                     <th>Lote</th>
                                   </tr>
@@ -138,9 +138,9 @@
                                       <span class="badge" :class="item.quantidade_liberada === item.quantidade_solicitada ? 'bg-success' : 'bg-warning'">{{ item.quantidade_liberada || item.quantidade }}</span>
                                     </td>
                                     <td class="fw-semibold">{{ item.produto?.nome || `Produto #${item.produto_id}` }}</td>
-                                    <td class="text-muted small">{{ item.produto?.codigo_simpas || '-' }}</td>
+                                    <td class="text-muted small">{{ formatarSimpas(item.produto?.codigo_simpas) }}</td>
                                     <td class="text-muted small">{{ item.produto?.codigo_barras || '-' }}</td>
-                                    <td class="text-muted small">{{ item.lote || '-' }}</td>
+                                    <td class="text-muted small">{{ formatarLote(item.lote) }}</td>
                                   </tr>
                                 </tbody>
                               </table>
@@ -317,6 +317,34 @@ export default {
     getStatusBadge(status) {
       return status === 'A' ? 'bg-success' : 'bg-danger';
     },
+    formatarSimpas(codigo) {
+      if (!codigo) return '-';
+      const s = String(codigo).trim();
+      if (/^\d{15}$/.test(s)) {
+        return `${s.slice(0, 2)}.${s.slice(2, 4)}.${s.slice(4, 6)}.${s.slice(6, 14)}-${s.slice(14)}`;
+      }
+      return s;
+    },
+    formatarLote(lote) {
+      if (!lote) return '-';
+      if (typeof lote === 'object') {
+        if (Array.isArray(lote)) {
+          const lotes = lote.map(x => x?.lote || x?.numero_lote || x).filter(Boolean);
+          return lotes.length ? lotes.join(', ') : '-';
+        }
+        return lote.lote || lote.numero_lote || '-';
+      }
+      const str = String(lote).trim();
+      if (str === '' || str === '-' || str.toLowerCase() === 'null') return '-';
+      if (str.startsWith('[') || str.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(str);
+          return this.formatarLote(parsed);
+        } catch (e) {}
+      }
+      const limpo = str.replace(/\s*\([Vv]alidade:?[^)]*\)/g, '').replace(/^[Ll]ote:\s*/i, '').trim();
+      return limpo || '-';
+    },
     exportExcel() {
       if (!this.movimentacoes || this.movimentacoes.length===0) return;
       
@@ -324,7 +352,7 @@ export default {
       const data = [];
       
       // Cabeçalho
-      data.push(['ID','Data/Hora','Tipo','Solicitante','Aprovador','Setor Origem','Setor Destino','Status','Qtd.Solicitada','Qtd.Liberada','Produto','Cód.simpas','Cód.Barras','Lote','Observação']);
+      data.push(['ID','Data/Hora','Tipo','Solicitante','Aprovador','Setor Origem','Setor Destino','Status','Qtd.Solicitada','Qtd.Liberada','Produto','Cód. SIMPAS','Cód.Barras','Lote','Observação']);
       
       // Dados
       for (const m of this.movimentacoes) {
@@ -342,9 +370,9 @@ export default {
               item.quantidade_solicitada || item.quantidade || '',
               item.quantidade_liberada || item.quantidade || '',
               item.produto?.nome || `Produto #${item.produto_id}`,
-              item.produto?.codigo_simpas || '',
+              this.formatarSimpas(item.produto?.codigo_simpas),
               item.produto?.codigo_barras || '',
-              item.lote || '',
+              this.formatarLote(item.lote),
               m.observacao || ''
             ]);
           });
@@ -387,7 +415,7 @@ export default {
         { wch: 12 }, // Qtd.Solicitada
         { wch: 12 }, // Qtd.Liberada
         { wch: 30 }, // Produto
-        { wch: 15 }, // Cód.simpas
+        { wch: 18 }, // Cód. SIMPAS
         { wch: 15 }, // Cód.Barras
         { wch: 15 }, // Lote
         { wch: 30 }  // Observação
@@ -427,8 +455,8 @@ export default {
               item.quantidade_solicitada || item.quantidade || '',
               item.quantidade_liberada || item.quantidade || '',
               item.produto?.nome || `Produto #${item.produto_id}`,
-              item.produto?.codigo_simpas || '',
-              item.lote || ''
+              this.formatarSimpas(item.produto?.codigo_simpas),
+              this.formatarLote(item.lote)
             ]);
           });
         } else {
@@ -452,7 +480,7 @@ export default {
       // Gerar tabela
       autoTable(doc, {
         startY: 28,
-        head: [['ID', 'Data/Hora', 'Tipo', 'Solicitante', 'Origem', 'Destino', 'Status', 'Qtd.Sol.', 'Qtd.Lib.', 'Produto', 'Cod. SIMPAS', 'Lote']],
+        head: [['ID', 'Data/Hora', 'Tipo', 'Solicitante', 'Origem', 'Destino', 'Status', 'Qtd.Sol.', 'Qtd.Lib.', 'Produto', 'Cód. SIMPAS', 'Lote']],
         body: tableData,
         theme: 'striped',
         headStyles: { fillColor: [13, 110, 253], fontSize: 8, fontStyle: 'bold' },
@@ -468,7 +496,7 @@ export default {
           7: { cellWidth: 14 },
           8: { cellWidth: 14 },
           9: { cellWidth: 40 },
-          10: { cellWidth: 20 },
+          10: { cellWidth: 24 },
           11: { cellWidth: 18 }
         },
         margin: { left: 14, right: 14 },

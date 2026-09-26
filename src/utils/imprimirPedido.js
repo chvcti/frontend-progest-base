@@ -30,6 +30,43 @@ const getStatusLabel = (status) => {
   return labels[status] || status || "-";
 };
 
+const formatarSimpas = (valor) => {
+  if (!valor) return "-";
+  const s = String(valor).trim();
+  if (/^\d{15}$/.test(s)) {
+    return `${s.slice(0, 2)}.${s.slice(2, 4)}.${s.slice(4, 6)}.${s.slice(6, 14)}-${s.slice(14)}`;
+  }
+  return s;
+};
+
+const sanitizarLoteImpressao = (loteRaw) => {
+  if (!loteRaw) return "-";
+  try {
+    let parsed = loteRaw;
+    if (typeof loteRaw === "string" && (loteRaw.startsWith("[") || loteRaw.startsWith("{"))) {
+      parsed = JSON.parse(loteRaw);
+    }
+    if (Array.isArray(parsed)) {
+      if (!parsed.length) return "-";
+      const lotes = parsed.map(l => {
+        const cod = l?.lote || l?.numero_lote || l;
+        return String(cod).replace(/\s*\([Vv]alidade:?[^)]*\)/g, "").replace(/^[Ll]ote:\s*/i, "").trim();
+      }).filter(Boolean);
+      return lotes.length ? lotes.join(", ") : "-";
+    }
+    if (typeof parsed === "object" && parsed !== null) {
+      const cod = parsed.lote || parsed.numero_lote || "-";
+      return String(cod).replace(/\s*\([Vv]alidade:?[^)]*\)/g, "").replace(/^[Ll]ote:\s*/i, "").trim() || "-";
+    }
+  } catch(e) {}
+
+  const limpo = String(loteRaw)
+    .replace(/\s*\([Vv]alidade:?[^)]*\)/g, "")
+    .replace(/^[Ll]ote:\s*/i, "")
+    .trim();
+  return limpo || "-";
+};
+
 // Evita que nome de produto/observação vindos do banco quebrem o HTML gerado.
 const escapar = (valor) =>
   String(valor ?? "")
@@ -161,8 +198,13 @@ export function imprimirPedido(pedido) {
         }
 
         .items-table thead {
+          display: table-header-group;
           background: #2563eb;
           color: white;
+        }
+
+        .items-table tbody {
+          display: table-row-group;
         }
 
         .items-table th {
@@ -245,6 +287,17 @@ export function imprimirPedido(pedido) {
           }
           body {
             -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .items-table thead {
+            display: table-header-group !important;
+          }
+          .items-table tbody {
+            display: table-row-group !important;
+          }
+          .items-table tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       </style>
@@ -301,7 +354,7 @@ export function imprimirPedido(pedido) {
         <thead>
           <tr>
             <th style="width: 40px;">#</th>
-            <th style="width: 100px;">Cód. SIMPASS</th>
+            <th style="width: 130px;">Cód. SIMPAS</th>
             <th>Descrição do Item</th>
             <th style="width: 80px;">Unidade</th>
             <th style="width: 120px;">Lote</th>
@@ -315,18 +368,11 @@ export function imprimirPedido(pedido) {
               (item, index) => `
             <tr>
               <td style="text-align: center; font-weight: bold;">${index + 1}</td>
-              <td>${escapar(item.produto?.codigo_simpas || "-")}</td>
+              <td>${escapar(formatarSimpas(item.produto?.codigo_simpas))}</td>
               <td>${escapar(item.produto?.nome || `Produto #${item.produto_id}`)}</td>
               <td>${escapar(item.produto?.unidade_medida?.nome || item.produto?.unidadeMedida?.nome || "-")}</td>
               <td>
-                ${(() => {
-                  if (pedido.status_solicitacao !== 'A' || !item.lote) return '-';
-                  try {
-                    const lotes = JSON.parse(item.lote);
-                    if (!lotes.length) return '-';
-                    return lotes.map(l => `${escapar(l.lote)} (${l.qtd})`).join(', ');
-                  } catch(e) { return escapar(item.lote); }
-                })()}
+                ${escapar(pedido.status_solicitacao === 'A' ? sanitizarLoteImpressao(item.lote) : '-')}
               </td>
               <td style="text-align: center; font-weight: bold;">${item.quantidade_solicitada}</td>
               <td style="text-align: center; font-weight: bold; color: ${

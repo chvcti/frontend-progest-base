@@ -16,6 +16,24 @@
             </div>
           </div>
 
+          <!-- Cabeçalho Institucional Regulatório (Portaria SVS/MS 344/98) -->
+          <div class="card mb-3 border-warning shadow-sm">
+            <div class="card-body py-2 px-3 bg-light d-flex flex-wrap justify-content-between align-items-center">
+              <div>
+                <span class="text-uppercase fw-bold text-warning-emphasis small d-block">
+                  Controle Especial — Portaria SVS/MS nº 344/98
+                </span>
+                <span class="fw-semibold text-dark">
+                  Razão Social / Unidade: {{ setorSelecionadoPolo || 'Unidade Hospitalar Integrada' }}
+                </span>
+                <span class="text-muted ms-2">| Setor / Farmácia: <strong>{{ setorSelecionadoNome }}</strong></span>
+              </div>
+              <div class="text-end text-muted small">
+                <span>Jurisdição: <strong>CRF-BA</strong></span>
+              </div>
+            </div>
+          </div>
+
           <!-- Indicação visual do setor cujo estoque está sendo exibido -->
           <div class="setor-banner mb-3">
             <span class="material-icons setor-banner-icon">apartment</span>
@@ -158,7 +176,7 @@
                       <tr>
                         <th style="width: 50px;"></th>
                         <th>Medicamento</th>
-                        <th style="width: 110px;">Cód. simpas</th>
+                        <th style="width: 130px;">Cód. SIMPAS</th>
                         <th style="width: 90px;">Lista</th>
                         <th>Grupo</th>
                         <th style="width: 220px;">Setor / Polo</th>
@@ -180,7 +198,7 @@
                             <strong>{{ item.produto?.nome || '-' }}</strong>
                             <div class="text-muted small">{{ getUnidade(item) }}</div>
                           </td>
-                          <td>{{ item.produto?.codigo_simpas || '-' }}</td>
+                          <td>{{ formatarSimpas(item.produto?.codigo_simpas) }}</td>
                           <td>
                             <span class="badge lista-badge">
                               {{ item.lista_portaria || item.produto?.lista_portaria || 'Sem lista' }}
@@ -585,12 +603,20 @@ export default {
       if (diasParaVencer <= 90) return 'bg-info';
       return 'bg-success';
     },
+    formatarSimpas(codigo) {
+      if (!codigo) return '-';
+      const s = String(codigo).trim();
+      if (/^\d{15}$/.test(s)) {
+        return `${s.slice(0, 2)}.${s.slice(2, 4)}.${s.slice(4, 6)}.${s.slice(6, 14)}-${s.slice(14)}`;
+      }
+      return s;
+    },
     exportExcel() {
       if (!this.itens || this.itens.length === 0) return;
 
       const data = [];
       data.push([
-        'Medicamento', 'Cód.simpas', 'Lista 344/98', 'Grupo', 'Unid.Medida',
+        'Medicamento', 'Cód. SIMPAS', 'Lista 344/98', 'Grupo', 'Unid.Medida',
         'Setor / Polo', 'Qtd Atual', 'Qtd Mínima', 'Entradas Período', 'Saídas Período',
         'Lote', 'Qtd Lote', 'Fabricação', 'Vencimento', 'Dias p/ Vencer', 'Status Lote'
       ]);
@@ -598,7 +624,7 @@ export default {
       for (const item of this.itens) {
         const base = [
           item.produto?.nome || '-',
-          item.produto?.codigo_simpas || '',
+          this.formatarSimpas(item.produto?.codigo_simpas),
           item.lista_portaria || item.produto?.lista_portaria || '',
           this.getGrupo(item),
           this.getUnidade(item),
@@ -631,7 +657,7 @@ export default {
       XLSX.utils.book_append_sheet(wb, ws, 'Controlados');
 
       ws['!cols'] = [
-        { wch: 35 }, { wch: 14 }, { wch: 12 }, { wch: 22 }, { wch: 12 },
+        { wch: 35 }, { wch: 18 }, { wch: 12 }, { wch: 22 }, { wch: 12 },
         { wch: 35 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 },
         { wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }
       ];
@@ -643,40 +669,44 @@ export default {
 
       const doc = new jsPDF('landscape', 'mm', 'a4');
 
-      doc.setFontSize(16);
-      doc.text('Relatorio de Medicamentos Controlados', 14, 15);
+      // Cabeçalho Institucional Regulatório (Portaria SVS/MS 344/98)
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.text('LIVRO / RELATORIO DE MEDICAMENTOS SUJEITOS A CONTROLE ESPECIAL', 14, 13);
+      doc.setFontSize(9);
+      doc.text('Portaria SVS/MS nº 344/98 — Escrituracao Farmaceutica e Controle de Estoque', 14, 18);
 
-      doc.setFontSize(10);
-      doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
+      doc.setFont(undefined, 'normal');
+      const razaoSocial = this.setorSelecionadoPolo || 'Unidade Hospitalar / Polo Central';
+      const setorLinha = this.setorSelecionadoNome;
+      const dataHoraEmissao = `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 
-      const setorLinha = this.setorSelecionadoPolo
-        ? `${this.setorSelecionadoNome} - ${this.setorSelecionadoPolo}`
-        : this.setorSelecionadoNome;
-      doc.text(`Setor: ${setorLinha}`, 14, 28);
+      doc.text(`Razao Social / Unidade Hospitalar: ${razaoSocial}`, 14, 24);
+      doc.text(`Setor / Farmacia: ${setorLinha}`, 14, 29);
+      doc.text(`Data de Emissao: ${dataHoraEmissao}`, 200, 24);
 
       if (this.periodo) {
-        doc.setFontSize(9);
         doc.text(
-          `Movimento de ${this.formatDate(this.periodo.date_from)} a ${this.formatDate(this.periodo.date_to)}`,
-          14,
-          34
+          `Periodo de Movimento: ${this.formatDate(this.periodo.date_from)} a ${this.formatDate(this.periodo.date_to)}`,
+          200,
+          29
         );
       }
 
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.text(
         `Itens: ${this.totalizadores.total_itens || 0} | Estoque: ${this.totalizadores.quantidade_total || 0} | `
         + `Entradas: ${this.totalizadores.total_entradas_periodo || 0} | Saidas: ${this.totalizadores.total_saidas_periodo || 0} | `
         + `Lotes vencidos: ${this.totalizadores.total_lotes_vencidos || 0}`,
         14,
-        40
+        35
       );
 
       const tableData = [];
       for (const item of this.itens) {
         const base = [
           item.produto?.nome || '-',
-          item.produto?.codigo_simpas || '',
+          this.formatarSimpas(item.produto?.codigo_simpas),
           item.lista_portaria || item.produto?.lista_portaria || '-',
           this.getSetorCompleto(item.setor),
           item.quantidade_atual,
@@ -701,25 +731,25 @@ export default {
       }
 
       autoTable(doc, {
-        startY: 45,
-        head: [['Medicamento', 'Cod.SIM', 'Lista', 'Setor/Polo', 'Qtd', 'Min', 'Ent.', 'Said.', 'Lote', 'Q.Lote', 'Venc.', 'St.Lote']],
+        startY: 38,
+        head: [['Medicamento', 'Cód. SIMPAS', 'Lista', 'Setor/Polo', 'Qtd', 'Min', 'Ent.', 'Said.', 'Lote', 'Q.Lote', 'Venc.', 'St.Lote']],
         body: tableData,
         theme: 'striped',
         headStyles: { fillColor: [180, 83, 9], fontSize: 7, fontStyle: 'bold' },
         bodyStyles: { fontSize: 6 },
         columnStyles: {
-          0: { cellWidth: 48 },
-          1: { cellWidth: 16 },
-          2: { cellWidth: 12 },
-          3: { cellWidth: 42 },
-          4: { cellWidth: 12 },
-          5: { cellWidth: 12 },
-          6: { cellWidth: 13 },
-          7: { cellWidth: 13 },
-          8: { cellWidth: 20 },
-          9: { cellWidth: 14 },
-          10: { cellWidth: 18 },
-          11: { cellWidth: 18 }
+          0: { cellWidth: 44 },  // Medicamento
+          1: { cellWidth: 23 },  // Cód. SIMPAS
+          2: { cellWidth: 12 },  // Lista
+          3: { cellWidth: 39 },  // Setor/Polo
+          4: { cellWidth: 12 },  // Qtd
+          5: { cellWidth: 12 },  // Min
+          6: { cellWidth: 13 },  // Ent.
+          7: { cellWidth: 13 },  // Said.
+          8: { cellWidth: 20 },  // Lote
+          9: { cellWidth: 14 },  // Q.Lote
+          10: { cellWidth: 18 }, // Venc.
+          11: { cellWidth: 18 }  // St.Lote
         },
         margin: { left: 14, right: 14 },
         didDrawPage: (data) => {
@@ -728,11 +758,28 @@ export default {
           doc.text(
             `Pagina ${data.pageNumber} de ${pageCount}`,
             doc.internal.pageSize.width / 2,
-            doc.internal.pageSize.height - 10,
+            doc.internal.pageSize.height - 6,
             { align: 'center' }
           );
         }
       });
+
+      // Rodapé formal da Portaria 344/98 (Campos de Responsabilidade Técnica)
+      const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY : 150;
+      let yAssinatura = finalY + 14;
+
+      if (yAssinatura + 24 > doc.internal.pageSize.height - 12) {
+        doc.addPage();
+        yAssinatura = 30;
+      }
+
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      doc.text('Farmacêutico(a) Responsável Técnico(a): ________________________________', 14, yAssinatura);
+      doc.text('CRF-BA: _______________', 190, yAssinatura);
+
+      doc.text(`Data de Emissão: ${dataHoraEmissao}`, 14, yAssinatura + 9);
+      doc.text('Assinatura / Carimbo: ________________________________', 190, yAssinatura + 9);
 
       doc.save(`relatorio_medicamentos_controlados_${new Date().toISOString().slice(0,10)}.pdf`);
     }

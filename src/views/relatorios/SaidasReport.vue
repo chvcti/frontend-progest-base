@@ -59,6 +59,7 @@
                         <th style="width: 50px;"></th>
                         <th>ID</th>
                         <th>Data</th>
+                        <th style="width: 140px;">Tipo</th>
                         <th>Setor Origem</th>
                         <th>Setor Destino</th>
                         <th>Status</th>
@@ -75,6 +76,11 @@
                           </td>
                           <td>{{ e.id }}</td>
                           <td>{{ formatDateTime(e.data_hora || e.created_at) }}</td>
+                          <td>
+                            <span class="badge" :class="e.tipo === 'T' ? 'bg-info' : 'bg-primary'">
+                              {{ e.tipo === 'T' ? 'Transferência Setorial' : 'Saída Direta' }}
+                            </span>
+                          </td>
                           <td>
                             <div class="text-dark fw-semibold">{{ e.setor_origem?.nome || '-' }}</div>
                             <small class="text-muted">{{ e.setor_origem?.polo?.nome || e.setor_origem?.unidade?.nome || '' }}</small>
@@ -95,7 +101,7 @@
                         
                         <!-- Linha expansível com informações detalhadas e tabela de produtos -->
                         <tr v-if="expandedRows[e.id]" class="expanded-content">
-                          <td colspan="7" class="p-0 bg-light">
+                          <td colspan="8" class="p-0 bg-light">
                             <div class="p-3">
                               <!-- Informações adicionais -->
                               <div class="row mb-3" v-if="e.observacao || e.aprovador">
@@ -115,9 +121,9 @@
                                       <th style="width: 90px;">Qtd. Solicitada</th>
                                       <th style="width: 90px;">Qtd. Liberada</th>
                                       <th>Produto</th>
-                                      <th style="width: 120px;">Cód. simpas</th>
+                                      <th style="width: 140px;">Cód. SIMPAS</th>
                                       <th style="width: 120px;">Cód. Barras</th>
-                                      <th style="width: 100px;">Lote</th>
+                                      <th style="width: 110px;">Lote</th>
                                       <th style="width: 110px;">Fabricação</th>
                                       <th style="width: 110px;">Vencimento</th>
                                     </tr>
@@ -134,9 +140,9 @@
                                         <span class="badge bg-success">{{ item.quantidade_liberada || 0 }}</span>
                                       </td>
                                       <td class="fw-semibold">{{ item.produto?.nome || `Produto #${item.produto_id}` }}</td>
-                                      <td class="text-muted small">{{ item.produto?.codigo_simpas || '-' }}</td>
+                                      <td class="text-muted small">{{ formatarSimpas(item.produto?.codigo_simpas) }}</td>
                                       <td class="text-muted small">{{ item.produto?.codigo_barras || '-' }}</td>
-                                      <td class="text-muted small">{{ item.lote || '-' }}</td>
+                                      <td class="text-muted small">{{ formatarLote(item.lote) }}</td>
                                       <td class="text-muted small">{{ formatDate(item.data_fabricacao) }}</td>
                                       <td class="text-muted small">{{ formatDate(item.data_vencimento) }}</td>
                                     </tr>
@@ -297,6 +303,34 @@ export default {
       if (parts.length<3) return d;
       return `${parts[2]}/${parts[1]}/${parts[0]}`;
     },
+    formatarSimpas(codigo) {
+      if (!codigo) return '-';
+      const s = String(codigo).trim();
+      if (/^\d{15}$/.test(s)) {
+        return `${s.slice(0, 2)}.${s.slice(2, 4)}.${s.slice(4, 6)}.${s.slice(6, 14)}-${s.slice(14)}`;
+      }
+      return s;
+    },
+    formatarLote(lote) {
+      if (!lote) return '-';
+      if (typeof lote === 'object') {
+        if (Array.isArray(lote)) {
+          const lotes = lote.map(x => x?.lote || x?.numero_lote || x).filter(Boolean);
+          return lotes.length ? lotes.join(', ') : '-';
+        }
+        return lote.lote || lote.numero_lote || '-';
+      }
+      const str = String(lote).trim();
+      if (str === '' || str === '-' || str.toLowerCase() === 'null') return '-';
+      if (str.startsWith('[') || str.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(str);
+          return this.formatarLote(parsed);
+        } catch (e) {}
+      }
+      const limpo = str.replace(/\s*\([Vv]alidade:?[^)]*\)/g, '').replace(/^[Ll]ote:\s*/i, '').trim();
+      return limpo || '-';
+    },
     exportExcel() {
       if (!this.exits || this.exits.length===0) return;
       
@@ -304,15 +338,17 @@ export default {
       const data = [];
       
       // Cabeçalho
-      data.push(['ID','Data','Setor Origem','Polo Origem','Setor Destino','Polo Destino','Status','Qtd.Sol.','Qtd.Lib.','Produto','Cód.simpas','Cód.Barras','Lote','Fabricação','Vencimento']);
+      data.push(['ID','Data','Tipo','Setor Origem','Polo Origem','Setor Destino','Polo Destino','Status','Qtd.Sol.','Qtd.Lib.','Produto','Cód. SIMPAS','Cód.Barras','Lote','Fabricação','Vencimento']);
       
       // Dados
       for (const e of this.exits) {
+        const tipoLabel = e.tipo === 'T' ? 'Transferência Setorial' : 'Saída Direta';
         if (e.itens && e.itens.length > 0) {
           e.itens.forEach(item => {
             data.push([
               e.id,
               this.formatDateTime(e.data_hora || e.created_at),
+              tipoLabel,
               e.setor_origem?.nome || '',
               e.setor_origem?.polo?.nome || e.setor_origem?.unidade?.nome || '',
               e.setor_destino?.nome || '',
@@ -321,9 +357,9 @@ export default {
               item.quantidade_solicitada || '',
               item.quantidade_liberada || '',
               item.produto?.nome || `Produto #${item.produto_id}`,
-              item.produto?.codigo_simpas || '',
+              this.formatarSimpas(item.produto?.codigo_simpas),
               item.produto?.codigo_barras || '',
-              item.lote || '',
+              this.formatarLote(item.lote),
               this.formatDate(item.data_fabricacao),
               this.formatDate(item.data_vencimento)
             ]);
@@ -332,6 +368,7 @@ export default {
           data.push([
             e.id,
             this.formatDateTime(e.data_hora || e.created_at),
+            tipoLabel,
             e.setor_origem?.nome || '',
             e.setor_origem?.polo?.nome || e.setor_origem?.unidade?.nome || '',
             e.setor_destino?.nome || '',
@@ -358,6 +395,7 @@ export default {
       const colWidths = [
         { wch: 8 },  // ID
         { wch: 16 }, // Data
+        { wch: 22 }, // Tipo
         { wch: 25 }, // Setor Origem
         { wch: 25 }, // Polo Origem
         { wch: 25 }, // Setor Destino
@@ -366,7 +404,7 @@ export default {
         { wch: 10 }, // Qtd.Sol.
         { wch: 10 }, // Qtd.Lib.
         { wch: 30 }, // Produto
-        { wch: 15 }, // Cód.simpas
+        { wch: 18 }, // Cód. SIMPAS
         { wch: 15 }, // Cód.Barras
         { wch: 15 }, // Lote
         { wch: 12 }, // Fabricação
@@ -394,19 +432,21 @@ export default {
       // Preparar dados da tabela
       const tableData = [];
       for (const e of this.exits) {
+        const tipoAbrev = e.tipo === 'T' ? 'Transf.' : 'Saída';
         if (e.itens && e.itens.length > 0) {
           e.itens.forEach((item, idx) => {
             tableData.push([
               idx === 0 ? e.id : '',
               idx === 0 ? this.formatDateTime(e.data_hora || e.created_at) : '',
+              idx === 0 ? tipoAbrev : '',
               idx === 0 ? (e.setor_origem?.nome || '-') : '',
               idx === 0 ? (e.setor_destino?.nome || '-') : '',
               idx === 0 ? this.getStatusLabel(e.status_solicitacao) : '',
               item.quantidade_solicitada || '',
               item.quantidade_liberada || '',
               item.produto?.nome || `Produto #${item.produto_id}`,
-              item.produto?.codigo_simpas || '',
-              item.lote || '',
+              this.formatarSimpas(item.produto?.codigo_simpas),
+              this.formatarLote(item.lote),
               this.formatDate(item.data_vencimento)
             ]);
           });
@@ -414,6 +454,7 @@ export default {
           tableData.push([
             e.id,
             this.formatDateTime(e.data_hora || e.created_at),
+            tipoAbrev,
             e.setor_origem?.nome || '-',
             e.setor_destino?.nome || '-',
             this.getStatusLabel(e.status_solicitacao),
@@ -430,23 +471,24 @@ export default {
       // Gerar tabela
       autoTable(doc, {
         startY: 28,
-        head: [['ID', 'Data', 'Setor Origem', 'Setor Destino', 'Status', 'Qtd.Sol', 'Qtd.Lib', 'Produto', 'Cod. SIMPAS', 'Lote', 'Venc.']],
+        head: [['ID', 'Data', 'Tipo', 'Setor Origem', 'Setor Destino', 'Status', 'Qtd.Sol', 'Qtd.Lib', 'Produto', 'Cód. SIMPAS', 'Lote', 'Venc.']],
         body: tableData,
         theme: 'striped',
         headStyles: { fillColor: [13, 110, 253], fontSize: 8, fontStyle: 'bold' },
         bodyStyles: { fontSize: 7 },
         columnStyles: {
           0: { cellWidth: 10 },  // ID
-          1: { cellWidth: 25 },  // Data
-          2: { cellWidth: 35 },  // Setor Origem
-          3: { cellWidth: 35 },  // Setor Destino
-          4: { cellWidth: 18 },  // Status
-          5: { cellWidth: 15 },  // Qtd.Sol
-          6: { cellWidth: 15 },  // Qtd.Lib
-          7: { cellWidth: 50 },  // Produto
-          8: { cellWidth: 22 },  // Cod. SIMPAS
-          9: { cellWidth: 20 },  // Lote
-          10: { cellWidth: 18 }  // Venc.
+          1: { cellWidth: 23 },  // Data
+          2: { cellWidth: 16 },  // Tipo
+          3: { cellWidth: 32 },  // Setor Origem
+          4: { cellWidth: 32 },  // Setor Destino
+          5: { cellWidth: 16 },  // Status
+          6: { cellWidth: 14 },  // Qtd.Sol
+          7: { cellWidth: 14 },  // Qtd.Lib
+          8: { cellWidth: 46 },  // Produto
+          9: { cellWidth: 23 },  // Cód. SIMPAS
+          10: { cellWidth: 20 }, // Lote
+          11: { cellWidth: 16 }  // Venc.
         },
         margin: { left: 14, right: 14 },
         didDrawPage: (data) => {

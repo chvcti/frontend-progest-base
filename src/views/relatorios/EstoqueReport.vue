@@ -108,7 +108,7 @@
                       <tr>
                         <th style="width: 50px;"></th>
                         <th>Produto</th>
-                        <th style="width: 120px;">Cód. simpas</th>
+                        <th style="width: 140px;">Cód. SIMPAS</th>
                         <th style="width: 120px;">Cód. Barras</th>
                         <th style="width: 100px;">Unid. Medida</th>
                         <th>Grupo</th>
@@ -139,7 +139,7 @@
                               Controlado{{ item.produto?.lista_portaria ? ' · ' + item.produto.lista_portaria : '' }}
                             </span>
                           </td>
-                          <td>{{ item.produto?.codigo_simpas || '-' }}</td>
+                          <td>{{ formatarSimpas(item.produto?.codigo_simpas) }}</td>
                           <td>{{ item.produto?.codigo_barras || '-' }}</td>
                           <td>{{ getUnidade(item) }}</td>
                           <td>
@@ -564,6 +564,14 @@ export default {
       }
       return nomeSetor;
     },
+    formatarSimpas(codigo) {
+      if (!codigo) return '-';
+      const s = String(codigo).trim();
+      if (/^\d{15}$/.test(s)) {
+        return `${s.slice(0, 2)}.${s.slice(2, 4)}.${s.slice(4, 6)}.${s.slice(6, 14)}-${s.slice(14)}`;
+      }
+      return s;
+    },
     exportExcel() {
       if (!this.estoque || this.estoque.length === 0) return;
       
@@ -571,7 +579,7 @@ export default {
       const data = [];
       
       // Cabeçalho
-      data.push(['Produto', 'Cód.simpas', 'Cód.Barras', 'Unid.Medida', 'Grupo', 'Setor / Polo', 'Localização', 'Qtd Atual', 'Qtd Mínima', 'Status', 'Lote', 'Qtd Lote', 'Fabricação', 'Vencimento', 'Dias p/ Vencer', 'Status Lote']);
+      data.push(['Produto', 'Cód. SIMPAS', 'Cód.Barras', 'Unid.Medida', 'Grupo', 'Setor / Polo', 'Localização', 'Qtd Atual', 'Qtd Mínima', 'Status', 'Lote', 'Qtd Lote', 'Fabricação', 'Vencimento', 'Dias p/ Vencer', 'Status Lote']);
       
       // Dados
       for (const item of this.estoque) {
@@ -579,7 +587,7 @@ export default {
           item.lotes_info.lotes.forEach((lote, idx) => {
             data.push([
               idx === 0 ? item.produto?.nome || '-' : '',
-              idx === 0 ? (item.produto?.codigo_simpas || '') : '',
+              idx === 0 ? this.formatarSimpas(item.produto?.codigo_simpas) : '',
               idx === 0 ? (item.produto?.codigo_barras || '') : '',
               idx === 0 ? this.getUnidade(item) : '',
               idx === 0 ? this.getGrupo(item) : '',
@@ -599,7 +607,7 @@ export default {
         } else {
           data.push([
             item.produto?.nome || '-',
-            item.produto?.codigo_simpas || '',
+            this.formatarSimpas(item.produto?.codigo_simpas),
             item.produto?.codigo_barras || '',
             this.getUnidade(item),
             this.getGrupo(item),
@@ -626,7 +634,7 @@ export default {
       // Ajustar largura das colunas
       const colWidths = [
         { wch: 35 }, // Produto
-        { wch: 15 }, // Cód.simpas
+        { wch: 18 }, // Cód. SIMPAS
         { wch: 15 }, // Cód.Barras
         { wch: 12 }, // Unid.Medida
         { wch: 20 }, // Grupo
@@ -681,7 +689,7 @@ export default {
           item.lotes_info.lotes.forEach((lote, idx) => {
             tableData.push([
               idx === 0 ? (item.produto?.nome || '-') : '',
-              idx === 0 ? (item.produto?.codigo_simpas || '') : '',
+              idx === 0 ? this.formatarSimpas(item.produto?.codigo_simpas) : '',
               idx === 0 ? this.getSetorCompleto(item.setor) : '',
               idx === 0 ? item.quantidade_atual : '',
               idx === 0 ? item.quantidade_minima : '',
@@ -696,7 +704,7 @@ export default {
         } else {
           tableData.push([
             item.produto?.nome || '-',
-            item.produto?.codigo_simpas || '',
+            this.formatarSimpas(item.produto?.codigo_simpas),
             this.getSetorCompleto(item.setor),
             item.quantidade_atual,
             item.quantidade_minima,
@@ -713,14 +721,14 @@ export default {
       // Gerar tabela
       autoTable(doc, {
         startY: this.totalizadores.total_itens > 0 ? 38 : 32,
-        head: [['Produto', 'Cod.SIM', 'Setor/Polo', 'Qtd', 'Min', 'Status', 'Lote', 'Q.Lote', 'Venc.', 'Dias', 'St.Lote']],
+        head: [['Produto', 'Cód. SIMPAS', 'Setor/Polo', 'Qtd', 'Min', 'Status', 'Lote', 'Q.Lote', 'Venc.', 'Dias', 'St.Lote']],
         body: tableData,
         theme: 'striped',
         headStyles: { fillColor: [25, 135, 84], fontSize: 7, fontStyle: 'bold' },
         bodyStyles: { fontSize: 6 },
         columnStyles: {
-          0: { cellWidth: 50 },  // Produto
-          1: { cellWidth: 15 },  // Cod. SIMPAS
+          0: { cellWidth: 43 },  // Produto
+          1: { cellWidth: 22 },  // Cód. SIMPAS
           2: { cellWidth: 45 },  // Setor/Polo
           3: { cellWidth: 12 },  // Qtd
           4: { cellWidth: 12 },  // Min

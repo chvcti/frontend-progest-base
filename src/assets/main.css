@@ -119,4 +119,29 @@ textarea.text-uppercase::placeholder,
    - 99999:      Toasts & Notificações Flutuantes (ToastViewport)
    ========================================================================== */
 
+/* ==========================================================================
+   REGRAS GLOBAIS DE IMPRESSÃO LIMPA
+   ========================================================================== */
+@media print {
+  nav, aside, header, .sidebar, .navbar, .no-print, button, input, select {
+    display: none !important;
+  }
+  body, main, .content, .main-content, .page-content {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  thead {
+    display: table-header-group !important;
+  }
+  tr {
+    page-break-inside: avoid !important;
+  }
+}
+
+
 
