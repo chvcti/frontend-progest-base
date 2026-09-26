@@ -50,7 +50,9 @@ Neste modo, o frontend roda dentro de um container Nginx e se comunica com o Tra
 
    * **Mudança de Link:** O domínio único agora governa o frontend e backend. Ajuste apenas `APP_DOMAIN` em seus `.env`.
    * **Problemas de CORS:** Agora são extintos nativamente na produção e no Docker local pois a API compartilha a base do Frontend (ex: `/api`).
-   * **Banco Vazio:** Se o sistema logar mas não mostrar nada, certifique-se de ter rodado o comando `php artisan db:seed --class=FullSystemSeeder` no backend.
+   * **Banco de Demonstração:** Se o sistema logar mas não mostrar estoques nem movimentações para teste, certifique-se de ter rodado o seeder de homologação no backend:
+     `php artisan db:seed --class=DemonstracaoSistemaSeeder`
+   * **Higienização de Produção:** O Vite está configurado para remover automaticamente todos os comandos `console.log` e `debugger` no build de produção (`npm run build` / Dockerfile), mantendo a integridade e segurança de dados do cliente.
 
 ---
 
