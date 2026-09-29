@@ -18,9 +18,13 @@ describe("cad_movimentacao.js - Funções de Comunicação e Regras Frontend", (
     mockStore = {
       state: {
         user: { id: 42, name: "Usuário Mock" },
+        auth: {
+          user: { id: 42, name: "Usuário Mock" },
+        },
       },
       getters: {
         getUserToken: "token-jwt-12345",
+        "auth/getUserToken": "token-jwt-12345",
       },
       commit: vi.fn(),
     };
@@ -126,7 +130,7 @@ describe("cad_movimentacao.js - Funções de Comunicação e Regras Frontend", (
       );
 
       expect(mockStore.commit).toHaveBeenCalledWith(
-        "setListMovimentacoes",
+        "estoque/setListMovimentacoes",
         expect.arrayContaining([
           expect.objectContaining({ id: 1 }),
           expect.objectContaining({ id: 2 }),

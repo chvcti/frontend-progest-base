@@ -64,6 +64,15 @@ import {
   exportarPedidoExcel,
   exportarPedidosExcel,
 } from "@/utils/exportarPedidoExcel";
+import {
+  isEntradaMovimentacao,
+  isSaidaMovimentacao,
+  podeAprovarMovimentacao,
+  podeCancelarMovimentacao,
+  podeEditarRascunho as podeEditarRascunhoGov,
+  podeDevolverMovimentacao as podeDevolverMovimentacaoGov,
+} from "@/utils/movimentacaoPermissions";
+import { calcularAlocacaoFifo } from "@/utils/fifoCalculator";
 
 const props = defineProps({
   setorId: { type: Number, required: true },
@@ -75,7 +84,7 @@ const router = useRouter();
 const { toast } = useToast();
 
 // Nome do setor atual (para exibir no modal de aprovação)
-const setorNome = computed(() => store.state.setorDetails?.nome || "Setor Atual");
+const setorNome = computed(() => store.state.estoque.setorDetails?.nome || "Setor Atual");
 
 const isCAF = computed(() => {
   const nome = setorNome.value?.toUpperCase() || "";
@@ -118,8 +127,8 @@ const dialogExcluirRascunhoOpen = ref(false);
 const rascunhoParaExcluir = ref(null);
 const loadingExcluirRascunho = ref(false);
 
-const setorAtual = computed(() => store.state.setorDetails || { id: props.setorId });
-const user = computed(() => store.state.user || {});
+const setorAtual = computed(() => store.state.estoque.setorDetails || { id: props.setorId });
+const user = computed(() => store.state.auth.user || {});
 
 const isAdmin = computed(() => {
   const u = user.value;
@@ -130,7 +139,7 @@ const isAdmin = computed(() => {
   if (u.perfil === "admin" || u.role === "admin" || u.usuario_tipo === "admin") {
     return true;
   }
-  const list = parentData.usuariosItems?.value || parentData.usuariosItems || store.state.listUsuariosSetor || [];
+  const list = parentData.usuariosItems?.value || parentData.usuariosItems || store.state.estoque.listUsuariosSetor || [];
   const found = list.find((item) => {
     const userId = item.usuario_id || item.user_id || item.id || item.usuario?.id;
     return userId === u.id;
@@ -156,7 +165,7 @@ const isAlmoxarife = computed(() => {
   const pUser = (u.perfil || u.role || u.usuario_tipo || "").toString().toLowerCase();
   if (pUser.includes("almoxarife")) return true;
 
-  const list = parentData.usuariosItems?.value || parentData.usuariosItems || store.state.listUsuariosSetor || [];
+  const list = parentData.usuariosItems?.value || parentData.usuariosItems || store.state.estoque.listUsuariosSetor || [];
   const found = list.find((item) => {
     const userId = item.usuario_id || item.user_id || item.id || item.usuario?.id;
     return userId === u.id;
@@ -306,56 +315,22 @@ const filteredMovimentacoes = computed(() => {
   });
 });
 
-const isEntrada = (mov) => {
-  const sid = Number(props.setorId);
-  return Number(mov.setor_destino_id) === sid || Number(mov.setorDestino?.id) === sid;
-};
-const isSaida = (mov) => {
-  const sid = Number(props.setorId);
-  return Number(mov.setor_origem_id) === sid || Number(mov.setorOrigem?.id) === sid;
-};
+const currentSetorId = computed(() => Number(setorAtual.value?.id || props.setorId));
 
-// Unificação da função de autorização/aprovação de movimentação
-const podeAprovar = (mov) => {
-  if (!mov || mov.status_solicitacao !== "P") return false;
-  const currentSetorId = Number(setorAtual.value?.id || props.setorId);
-  const isDestino = Number(mov.setor_destino_id || mov.setorDestino?.id) === currentSetorId;
-  const isOrigem = Number(mov.setor_origem_id || mov.setorOrigem?.id) === currentSetorId;
-  const temPermissao = isAdmin.value || isAlmoxarife.value;
-  if (mov.tipo === "D") return isDestino && temPermissao;
-  return isOrigem && temPermissao;
-};
+const isEntrada = (mov) => isEntradaMovimentacao(mov, currentSetorId.value);
+const isSaida = (mov) => isSaidaMovimentacao(mov, currentSetorId.value);
+
+// Funções de governança delegadas para movimentacaoPermissions
+const podeAprovar = (mov) =>
+  podeAprovarMovimentacao(mov, currentSetorId.value, isAdmin.value || isAlmoxarife.value);
 const podeAprovarMov = podeAprovar;
 
-// Em devolução, quem pode cancelar antes da aprovação é quem solicitou a devolução (origem);
-// Em transferência comum, quem pode cancelar é quem fez o pedido (destino).
-const podeCancelarMov = (mov) => {
-  if (!mov || mov.status_solicitacao !== "P") return false;
-  const currentSetorId = Number(setorAtual.value?.id || props.setorId);
-  const isDestino = Number(mov.setor_destino_id || mov.setorDestino?.id) === currentSetorId;
-  const isOrigem = Number(mov.setor_origem_id || mov.setorOrigem?.id) === currentSetorId;
-  if (mov.tipo === "D") {
-    return isOrigem;
-  }
-  return isDestino;
-};
+const podeCancelarMov = (mov) => podeCancelarMovimentacao(mov, currentSetorId.value);
 
-// Verifica se o rascunho pertence ao setor atual para permitir edição/envio
-const podeEditarRascunho = (mov) => {
-  if (mov.status_solicitacao !== "C") return false;
-  if (mov.tipo === "D") {
-    return isSaida(mov);
-  }
-  return isEntrada(mov);
-};
+const podeEditarRascunho = (mov) => podeEditarRascunhoGov(mov, currentSetorId.value);
 
-// Verifica se a movimentação é elegível para devolução direta
-const podeDevolverMovimentacao = (mov) => {
-  if (mov.status_solicitacao !== "A") return false;
-  if (mov.tipo === "D") return false; // Não devolver algo que já foi devolução
-  // O setor atual deve ter recebido os itens (entrada) para poder devolvê-los
-  return isEntrada(mov);
-};
+const podeDevolverMovimentacao = (mov) =>
+  podeDevolverMovimentacaoGov(mov, currentSetorId.value);
 
 const countTodas = computed(() => listMovimentacoes.value.length);
 const countSaidas = computed(() => listMovimentacoes.value.filter(isSaida).length);
@@ -553,7 +528,7 @@ const carregarPreviewLotes = async () => {
 
   loadingPreviewLotes.value = true;
   try {
-    const authHeader = { Authorization: "Bearer " + store.getters.getUserToken };
+    const authHeader = { Authorization: "Bearer " + store.getters["auth/getUserToken"] };
     const response = await axios.get(
       `/movimentacao/${movimentacaoParaAprovar.value.id}/preview-lotes`,
       {
@@ -581,26 +556,16 @@ const carregarPreviewLotes = async () => {
           };
         }
 
-        let restante = qtdLiberar;
-        const lotesAlocados = [];
-
-        for (const lote of prodPreview.lotes_a_consumir || []) {
-          if (restante <= 0) break;
-          const saldoLote = Number(lote.quantidade_disponivel) || 0;
-          if (saldoLote <= 0) continue;
-          const qtdUsar = Math.min(saldoLote, restante);
-          lotesAlocados.push({
-            ...lote,
-            quantidade_a_usar: qtdUsar,
-          });
-          restante -= qtdUsar;
-        }
+        const { lotes_alocados, quantidade_sem_cobertura } = calcularAlocacaoFifo(
+          prodPreview.lotes_a_consumir,
+          qtdLiberar
+        );
 
         return {
           ...prodPreview,
           quantidade_liberada: qtdLiberar,
-          quantidade_sem_cobertura: Math.max(0, restante),
-          lotes_a_consumir: lotesAlocados,
+          quantidade_sem_cobertura,
+          lotes_a_consumir: lotes_alocados,
         };
       });
     }
@@ -645,7 +610,7 @@ const abrirModalAprovacao = async (mov) => {
   previewLotesData.value = [];
   loadingAprovacao.value = true;
   try {
-    const authHeader = { Authorization: "Bearer " + store.getters.getUserToken };
+    const authHeader = { Authorization: "Bearer " + store.getters["auth/getUserToken"] };
     const isDevolucao = mov.tipo === "D";
     let estoqueMap = {};
 
@@ -745,7 +710,7 @@ const aprovarMovimentacao = async () => {
       `/movimentacao/${movimentacaoParaAprovar.value.id}/process`,
       payload,
       {
-        headers: { Authorization: "Bearer " + store.getters.getUserToken },
+        headers: { Authorization: "Bearer " + store.getters["auth/getUserToken"] },
       },
     );
     toast({
@@ -772,7 +737,7 @@ const rejeitarMovimentacao = async () => {
       `/movimentacao/${movimentacaoParaAprovar.value.id}/process`,
       { status: "R" },
       {
-        headers: { Authorization: "Bearer " + store.getters.getUserToken },
+        headers: { Authorization: "Bearer " + store.getters["auth/getUserToken"] },
       },
     );
     toast({ title: "Sucesso", description: "Movimentação rejeitada." });
@@ -801,7 +766,7 @@ const cancelarMovimentacao = async () => {
       `/movimentacao/${movimentacaoParaCancelar.value.id}/process`,
       { status: "X" },
       {
-        headers: { Authorization: "Bearer " + store.getters.getUserToken },
+        headers: { Authorization: "Bearer " + store.getters["auth/getUserToken"] },
       },
     );
     toast({ title: "Sucesso", description: "Solicitação cancelada." });
@@ -835,7 +800,7 @@ const enviarRascunho = async () => {
     await axios.post(
       `/movimentacao/${rascunhoParaEnviar.value.id}/process`,
       { status: "P" },
-      { headers: { Authorization: "Bearer " + store.getters.getUserToken } },
+      { headers: { Authorization: "Bearer " + store.getters["auth/getUserToken"] } },
     );
     toast({ title: "Enviado!", description: "Rascunho promovido para Pendente com sucesso." });
     dialogEnviarRascunhoOpen.value = false;
@@ -858,7 +823,7 @@ const excluirRascunho = async () => {
     await axios.post(
       `/movimentacao/${rascunhoParaExcluir.value.id}/delete`,
       {},
-      { headers: { Authorization: "Bearer " + store.getters.getUserToken } },
+      { headers: { Authorization: "Bearer " + store.getters["auth/getUserToken"] } },
     );
     toast({ title: "Excluído", description: "Rascunho excluído com sucesso." });
     dialogExcluirRascunhoOpen.value = false;
@@ -1288,7 +1253,7 @@ const calcularQtdDevolvida = (mov, itemId) => {
 
                 <!-- Devolver Pedido (entrada Aprovada) -->
                 <Button
-                  v-if="isEntrada(mov) && mov.status_solicitacao === 'A' && mov.tipo !== 'D'"
+                  v-if="podeDevolverMovimentacao(mov)"
                   variant="ghost"
                   size="icon"
                   @click="abrirDevolucaoEntrada(mov)"
