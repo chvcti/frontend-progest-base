@@ -26,11 +26,15 @@ app.config.globalProperties.$axios = axios;
 axios.interceptors.request.use(
   function (config) {
     try {
-      const token = store.getters.getUserToken;
+      const token =
+        store.getters["auth/getUserToken"] ||
+        store.getters.getUserToken ||
+        sessionStorage.getItem("token") ||
+        localStorage.getItem("token");
       if (token) {
         config.headers = config.headers || {};
         // Não sobrescrever se já definido explicitamente
-        if (!config.headers.Authorization && token) {
+        if (!config.headers.Authorization) {
           config.headers.Authorization = "Bearer " + token;
         }
         // Garantir content-type por padrão em requisições com payload
@@ -103,7 +107,8 @@ axios.interceptors.response.use(
 
       // Força a limpeza do sessionStorage, despacha a ação de logout da store e redireciona para /login
       sessionStorage.clear();
-      store.dispatch("logout");
+      store.dispatch("auth/logout").catch(() => {});
+      store.dispatch("logout").catch(() => {});
       setorCookie.clearSector();
       router.push("/login");
 
@@ -125,7 +130,10 @@ app.use(router);
 app.use(store); // Use o store importado
 // Inicializar dados do setor assim que possível (não bloqueante)
 try {
-  const token = store.getters.getUserToken;
+  const token =
+    store.getters["auth/getUserToken"] ||
+    store.getters.getUserToken ||
+    sessionStorage.getItem("token");
   if (token && setorCookie.hasSector()) {
     // Chamar inicializador (async) — não aguardamos o término para não bloquear o mount
     initSetorContext({ axios, store }).catch((e) =>

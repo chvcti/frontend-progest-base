@@ -71,8 +71,16 @@ export default createStore({
       state.isSearching = id;
     },
   },
-  actions: {},
+  actions: {
+    logout({ dispatch }) {
+      return dispatch("auth/logout");
+    },
+  },
   getters: {
+    getUserToken: (state, getters) => getters["auth/getUserToken"] || state.auth?.userToken || sessionStorage.getItem("token"),
+    getUser: (state, getters) => getters["auth/getUser"] || state.auth?.user,
+    isSuperAdmin: (state, getters) => getters["auth/isSuperAdmin"],
+    isAdmin: (state, getters) => getters["auth/isAdmin"],
     getModalData: (state) => state.modalData.modalData,
     getModalTitle: (state) => state.modalData.modalTitle,
     getModalFunction: (state) => state.modalData.modalFunction,

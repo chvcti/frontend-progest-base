@@ -234,13 +234,24 @@ onMounted(() => {
 
   // Carregar grupos para o filtro
   if (gruposParaFiltro.value.length === 0) {
+    const token =
+      store.getters["auth/getUserToken"] ||
+      store.getters.getUserToken ||
+      sessionStorage.getItem("token");
     proxy.$axios
-      .post("/grupoProduto/list", { filters: [{}], per_page: 500 })
+      .post(
+        "/grupoProduto/list",
+        { filters: [{}], per_page: 500 },
+        token ? { headers: { Authorization: "Bearer " + token } } : {}
+      )
       .then((r) => {
         if (r.data?.status) {
           const data = r.data.data.data || r.data.data;
           store.commit("cadastros/setGruposProdutos", Array.isArray(data) ? data : []);
         }
+      })
+      .catch((err) => {
+        console.warn("Aviso ao carregar grupos para filtro:", err);
       });
   }
 });
