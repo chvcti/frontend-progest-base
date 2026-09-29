@@ -628,7 +628,11 @@ const toggleExpand = (pedidoId) => {
 const fetchPedidos = async () => {
   loading.value = true;
   try {
-    const token = localStorage.getItem("token");
+    const token =
+      store?.getters?.["auth/getUserToken"] ||
+      store?.getters?.getUserToken ||
+      sessionStorage.getItem("token") ||
+      localStorage.getItem("token");
     const rawSetorId = store.state.estoque.setorAtualId || store.state.estoque.setorDetails?.id || (setorCookie?.getSectorId ? setorCookie.getSectorId() : null);
 
     if (!rawSetorId) {
@@ -642,7 +646,7 @@ const fetchPedidos = async () => {
     const response = await axios.post(
       "/movimentacao/listBySetor",
       { setor_id: sid, per_page: 5000, lote: searchLote.value },
-      { headers: { Authorization: `Bearer ${token}` } }
+      token ? { headers: { Authorization: `Bearer ${token}` } } : {}
     );
 
     if (response.data.status) {

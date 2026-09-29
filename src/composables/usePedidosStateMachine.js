@@ -39,9 +39,10 @@ export function usePedidosStateMachine(onSuccessCallback) {
 
   const getToken = () => {
     return (
-      localStorage.getItem("token") ||
       store?.getters?.["auth/getUserToken"] ||
       store?.getters?.getUserToken ||
+      sessionStorage.getItem("token") ||
+      localStorage.getItem("token") ||
       store?.state?.auth?.userToken ||
       ""
     );

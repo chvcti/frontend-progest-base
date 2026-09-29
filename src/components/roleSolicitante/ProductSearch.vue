@@ -190,6 +190,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { useStore } from "vuex";
 import axios from "axios";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -206,6 +207,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner/LoadingSpinner.vue";
 import { useToast } from "@/components/ui/toast";
 import { useSolicitacao } from "@/composables/useSolicitacao";
 const router = useRouter();
+const store = useStore();
 const { toast } = useToast();
 
 const { tipo, itens, quantidadeProdutos, setTipo, addItem, setorAtual } = useSolicitacao();
@@ -290,7 +292,11 @@ const fetchProducts = async () => {
 
   loading.value = true;
   try {
-    const token = localStorage.getItem("token");
+    const token =
+      store?.getters?.["auth/getUserToken"] ||
+      store?.getters?.getUserToken ||
+      sessionStorage.getItem("token") ||
+      localStorage.getItem("token");
     const payload = {
       filters: { tipo_produto: tipoLocal.value, status: "A" },
       sort_by: "nome",
@@ -306,7 +312,7 @@ const fetchProducts = async () => {
     const response = await axios.post(
       "/produtos/list",
       payload,
-      { headers: { Authorization: `Bearer ${token}` } }
+      token ? { headers: { Authorization: `Bearer ${token}` } } : {}
     );
 
     if (response.data.status) {

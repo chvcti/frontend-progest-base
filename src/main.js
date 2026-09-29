@@ -33,8 +33,15 @@ axios.interceptors.request.use(
         localStorage.getItem("token");
       if (token) {
         config.headers = config.headers || {};
-        // Não sobrescrever se já definido explicitamente
-        if (!config.headers.Authorization) {
+        // Não sobrescrever se já definido explicitamente e for válido
+        const existingAuth = config.headers.Authorization;
+        if (
+          !existingAuth ||
+          existingAuth === "Bearer null" ||
+          existingAuth === "Bearer undefined" ||
+          existingAuth === "Bearer " ||
+          existingAuth === "Bearer"
+        ) {
           config.headers.Authorization = "Bearer " + token;
         }
         // Garantir content-type por padrão em requisições com payload

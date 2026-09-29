@@ -403,7 +403,12 @@ const processarEnvio = async (statusTarget) => {
   try {
     submitting.value = true;
     submittingType.value = statusTarget;
-    const token = localStorage.getItem("token");
+    const token =
+      store?.getters?.["auth/getUserToken"] ||
+      store?.getters?.getUserToken ||
+      sessionStorage.getItem("token") ||
+      localStorage.getItem("token");
+    const authHeaders = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
 
     let response;
 
@@ -418,30 +423,22 @@ const processarEnvio = async (statusTarget) => {
           observacao: pedidoData.observacao,
           itens: pedidoData.itens,
           status_solicitacao: "C",
-        }, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        }, authHeaders);
       } else {
         // Atualiza itens do rascunho e submete
         await axios.post(`/movimentacao/${editId}/update-rascunho`, {
           setor_origem_id: pedidoData.setor_origem_id,
           observacao: pedidoData.observacao,
           itens: pedidoData.itens,
-        }, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        }, authHeaders);
 
         response = await axios.post(`/movimentacao/${editId}/process`, {
           action: "submit",
-        }, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        }, authHeaders);
       }
     } else {
       // Criação de nova movimentação
-      response = await axios.post("/movimentacao/add", pedidoData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      response = await axios.post("/movimentacao/add", pedidoData, authHeaders);
     }
 
     if (response.data.status) {
