@@ -84,83 +84,11 @@
           </div>
         </div>
 
-        <div v-if="showFornecedorForm" class="mt-3 p-3 border rounded bg-light">
-          <h6 class="mb-3 text-primary">Cadastrar fornecedor rapidamente</h6>
-          <div class="row g-3">
-            <div class="col-md-4">
-              <Label for="novoFornecedorNome">
-                Razão social / Nome
-                <span class="text-danger">*</span>
-              </Label>
-              <Input
-                id="novoFornecedorNome"
-                v-model="novoFornecedor.nome"
-                type="text"
-                class="text-uppercase"
-                placeholder="Digite o nome do fornecedor"
-              />
-            </div>
-            <div class="col-md-4">
-              <Label for="novoFornecedorTipo"> Tipo de pessoa </Label>
-              <Select v-model="novoFornecedor.tipo">
-                <SelectTrigger id="novoFornecedorTipo" class="w-full">
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="J">Pessoa Jurídica</SelectItem>
-                  <SelectItem value="F">Pessoa Física</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div class="col-md-4">
-              <Label for="novoFornecedorDocumento">
-                {{ novoFornecedor.tipo === "J" ? "CNPJ" : "CPF" }}
-              </Label>
-              <Input
-                id="novoFornecedorDocumento"
-                v-model="novoFornecedor.documento"
-                type="text"
-                placeholder="Somente números"
-                v-mask="mascaraDocumentoFornecedor"
-              />
-            </div>
-            <div class="col-12 d-flex justify-content-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                @click="cancelarFornecedorForm"
-              >
-                <i class="mdi mdi-close"></i>
-                Cancelar
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                type="button"
-                @click="salvarFornecedorInline"
-                :disabled="
-                  salvandoFornecedorInline ||
-                  !novoFornecedor.nome ||
-                  !novoFornecedor.documento
-                "
-              >
-                <template v-if="!salvandoFornecedorInline">
-                  <i class="mdi mdi-check"></i>
-                  <span>Salvar fornecedor</span>
-                </template>
-                <template v-else>
-                  <span
-                    class="spinner-border spinner-border-sm"
-                    role="status"
-                    aria-hidden="true"
-                  ></span>
-                  <span>Salvando...</span>
-                </template>
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ModalQuickAddFornecedor
+          v-if="showFornecedorForm"
+          @created="onFornecedorCreated"
+          @cancel="showFornecedorForm = false"
+        />
 
         <hr class="my-4" />
 
@@ -294,7 +222,7 @@
                   v-if="itemAtual.tipoValor === 'total' && itemAtual.valor && itemAtual.quantidade > 0"
                   class="text-[11px] text-slate-500"
                 >
-                  Unitário ≈ R$ {{ (parseFloat(itemAtual.valor) / itemAtual.quantidade).toFixed(4) }}
+                  Unitário ≈ R$ {{ previewValorUnitario }}
                 </div>
               </div>
             </div>
@@ -346,294 +274,13 @@
           </div>
         </div>
 
-        <div
+        <ModalQuickAddProduto
           v-if="showProdutoForm"
-          class="mt-3 mb-4 p-3 border rounded bg-light"
-        >
-          <h6 class="mb-3 text-primary">Cadastrar produto rapidamente</h6>
-          <div class="row g-3">
-            <div class="col-lg-4 col-md-6">
-              <Label for="novoProdutoNome">
-                Nome do produto
-                <span class="text-danger">*</span>
-              </Label>
-              <Input
-                id="novoProdutoNome"
-                v-model="novoProduto.nome"
-                type="text"
-                class="text-uppercase"
-                placeholder="Ex: DIPIRONA 500MG"
-              />
-            </div>
-            <div class="col-lg-4 col-md-6">
-              <Label for="novoProdutoGrupo"> Grupo do produto </Label>
-              <div class="flex gap-2">
-                <div class="flex-1">
-                  <Select v-model="novoProduto.grupo_produto_id">
-                    <SelectTrigger id="novoProdutoGrupo">
-                      <SelectValue placeholder="Selecionar grupo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        v-for="grupo in gruposDisponiveis"
-                        :key="grupo.id"
-                        :value="String(grupo.id)"
-                      >
-                        {{ grupo.nome }}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  type="button"
-                  @click="toggleGrupoProdutoForm"
-                  title="Cadastrar novo grupo"
-                >
-                  <i class="mdi mdi-plus"></i>
-                </Button>
-              </div>
-            </div>
-            <div class="col-lg-4 col-md-6">
-              <Label for="novoProdutoUnidade"> Unidade de medida </Label>
-              <div class="flex gap-2">
-                <div class="flex-1">
-                  <Select v-model="novoProduto.unidade_medida_id">
-                    <SelectTrigger id="novoProdutoUnidade" class="w-full">
-                      <SelectValue placeholder="Selecionar unidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        v-for="unidade in unidadesMedidaDisponiveis"
-                        :key="unidade.id"
-                        :value="String(unidade.id)"
-                      >
-                        {{ unidade.nome }}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  type="button"
-                  @click="toggleUnidadeMedidaForm"
-                  title="Cadastrar nova unidade"
-                >
-                  <i class="mdi mdi-plus"></i>
-                </Button>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <Label for="novoProdutoStatus"> Status </Label>
-              <Select v-model="novoProduto.status">
-                <SelectTrigger id="novoProdutoStatus" class="w-full">
-                  <SelectValue placeholder="Selecione o status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="A">Ativo</SelectItem>
-                  <SelectItem value="I">Inativo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div class="col-md-3">
-              <Label for="novoProdutoCodigoSimpas"> Código SIMPAS </Label>
-              <Input
-                id="novoProdutoCodigoSimpas"
-                v-model="novoProduto.codigo_simpas"
-                type="text"
-                class="text-uppercase"
-                placeholder="Ex: ABC-123.45"
-              />
-            </div>
-            <div class="col-md-3">
-              <Label for="novoProdutoCodigoBarras"> Código de barras </Label>
-              <Input
-                id="novoProdutoCodigoBarras"
-                v-model="novoProduto.codigo_barras"
-                type="text"
-                placeholder="Ex: 7891234567890"
-              />
-            </div>
-            <div class="col-md-3">
-              <Label for="novoProdutoMarca"> Marca </Label>
-              <Input
-                id="novoProdutoMarca"
-                v-model="novoProduto.marca"
-                type="text"
-                class="text-uppercase"
-                placeholder="Ex: EMS"
-              />
-            </div>
-            <div v-if="showGrupoProdutoForm" class="col-12">
-              <div class="p-3 border rounded bg-white">
-                <div class="row g-3 align-items-end">
-                  <div class="col-md-6">
-                    <Label class="text-sm" for="novoGrupoProdutoNome">
-                      Nome do grupo
-                      <span class="text-danger">*</span>
-                    </Label>
-                    <Input
-                      id="novoGrupoProdutoNome"
-                      v-model="novoGrupoProduto.nome"
-                      type="text"
-                      class="text-uppercase"
-                      placeholder="Ex: ANALGÉSICOS"
-                    />
-                  </div>
-                  <div class="col-md-3">
-                    <Label class="text-sm" for="novoGrupoProdutoTipo">
-                      Tipo
-                    </Label>
-                    <Select v-model="novoGrupoProduto.tipo">
-                      <SelectTrigger id="novoGrupoProdutoTipo" class="w-full">
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Material">Material</SelectItem>
-                        <SelectItem value="Medicamento">Medicamento</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div class="col-md-3 d-flex justify-content-end gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      type="button"
-                      @click="cancelarGrupoProdutoForm"
-                    >
-                      <i class="mdi mdi-close"></i>
-                      Cancelar
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      type="button"
-                      @click="salvarGrupoProdutoInline"
-                      :disabled="
-                        salvandoGrupoProdutoInline || !novoGrupoProduto.nome
-                      "
-                    >
-                      <template v-if="!salvandoGrupoProdutoInline">
-                        <i class="mdi mdi-check"></i>
-                        <span>Salvar grupo</span>
-                      </template>
-                      <template v-else>
-                        <span
-                          class="spinner-border spinner-border-sm"
-                          role="status"
-                          aria-hidden="true"
-                        ></span>
-                        <span>Salvando...</span>
-                      </template>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div v-if="showUnidadeMedidaForm" class="col-12">
-              <div class="p-3 border rounded bg-white">
-                <div class="row g-3 align-items-end">
-                  <div class="col-md-4">
-                    <Label class="text-sm" for="novaUnidadeMedidaNome">
-                      Nome da unidade
-                      <span class="text-danger">*</span>
-                    </Label>
-                    <Input
-                      id="novaUnidadeMedidaNome"
-                      v-model="novaUnidadeMedida.nome"
-                      type="text"
-                      class="text-uppercase"
-                      placeholder="Ex: CAIXA"
-                    />
-                  </div>
-                  <div class="col-md-3">
-                    <Label class="text-sm" for="novaUnidadeMedidaQtd">
-                      Qtd.
-                      <span class="text-danger">*</span>
-                    </Label>
-                    <Input
-                      id="novaUnidadeMedidaQtd"
-                      v-model="novaUnidadeMedida.quantidade_unidade_minima"
-                      type="number"
-                      step="0.01"
-                      placeholder="Ex: 1"
-                    />
-                  </div>
-                  <div class="col-md-5 d-flex justify-content-end gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      type="button"
-                      @click="cancelarUnidadeMedidaForm"
-                    >
-                      <i class="mdi mdi-close"></i>
-                      Cancelar
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      type="button"
-                      @click="salvarUnidadeMedidaInline"
-                      :disabled="
-                        salvandoUnidadeMedidaInline || !novaUnidadeMedida.nome
-                      "
-                    >
-                      <template v-if="!salvandoUnidadeMedidaInline">
-                        <i class="mdi mdi-check"></i>
-                        <span>Salvar unidade</span>
-                      </template>
-                      <template v-else>
-                        <span
-                          class="spinner-border spinner-border-sm"
-                          role="status"
-                          aria-hidden="true"
-                        ></span>
-                        <span>Salvando...</span>
-                      </template>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-12 d-flex justify-content-end gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                type="button"
-                @click="cancelarProdutoForm"
-              >
-                <i class="mdi mdi-close"></i>
-                Cancelar
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                type="button"
-                @click="salvarProdutoInline"
-                :disabled="
-                  salvandoProdutoInline ||
-                  !novoProduto.nome ||
-                  !novoProduto.unidade_medida_id
-                "
-              >
-                <template v-if="!salvandoProdutoInline">
-                  <i class="mdi mdi-check"></i>
-                  <span>Salvar produto</span>
-                </template>
-                <template v-else>
-                  <span
-                    class="spinner-border spinner-border-sm"
-                    role="status"
-                    aria-hidden="true"
-                  ></span>
-                  <span>Salvando...</span>
-                </template>
-              </Button>
-            </div>
-          </div>
-        </div>
+          :grupos-disponiveis="gruposDisponiveis"
+          :unidades-disponiveis="unidadesMedidaDisponiveis"
+          @created="onProdutoCreated"
+          @cancel="showProdutoForm = false"
+        />
 
         <div v-if="form.itens.length > 0" class="table-responsive">
           <table class="table table-striped table-hover align-middle">
@@ -698,6 +345,19 @@
                 </td>
               </tr>
             </tbody>
+            <tfoot v-if="form.itens.length > 0">
+              <tr class="table-light fw-semibold">
+                <td class="text-start">Total ({{ totalItensCount }} itens)</td>
+                <td class="text-center">
+                  <span class="badge bg-secondary">{{ totalQuantidade }}</span>
+                </td>
+                <td class="text-center text-success">
+                  <span v-if="totalValorItens > 0">R$ {{ totalValorItens.toFixed(2) }}</span>
+                  <span v-else class="text-muted">-</span>
+                </td>
+                <td colspan="4"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
         <Alert v-else class="flex">
@@ -746,6 +406,13 @@ import cadFornecedores from "@/functions/cad_fornecedores.js";
 import cadProdutos from "@/functions/cad_produtos.js";
 import cadUnidadesMedida from "@/functions/cad_unidades_medida.js";
 import cadGrupoProduto from "@/functions/cad_grupo_produto.js";
+import ModalQuickAddFornecedor from "@/components/shared/ModalQuickAddFornecedor.vue";
+import ModalQuickAddProduto from "@/components/shared/ModalQuickAddProduto.vue";
+import {
+  calcularValorUnitario,
+  calcularTotalItens,
+  calcularTotalQuantidade,
+} from "@/utils/entradaCalculators";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -785,6 +452,8 @@ export default {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
+    ModalQuickAddFornecedor,
+    ModalQuickAddProduto,
   },
   emits: ["registrado", "update:open"],
   props: {
@@ -810,33 +479,9 @@ export default {
         itens: [],
       },
       showFornecedorForm: false,
-      novoFornecedor: {
-        nome: "",
-        documento: "",
-        tipo: "J",
-      },
       fornecedoresCustom: [],
       fornecedorErro: "",
       showProdutoForm: false,
-      novoProduto: {
-        nome: "",
-        unidade_medida_id: "",
-        status: "A",
-        grupo_produto_id: "",
-        codigo_simpas: "",
-        marca: "",
-        codigo_barras: "",
-      },
-      showGrupoProdutoForm: false,
-      novoGrupoProduto: {
-        nome: "",
-        tipo: "Material",
-      },
-      showUnidadeMedidaForm: false,
-      novaUnidadeMedida: {
-        nome: "",
-        quantidade_unidade_minima: 1,
-      },
       produtosCustom: [],
       gruposCustom: [],
       produtoSelecionadoId: "",
@@ -848,17 +493,13 @@ export default {
         tipoValor: "unitario", // 'unitario' ou 'total'
         valor: "",            // valor digitado pelo usuário
       },
-      salvandoFornecedorInline: false,
-      salvandoProdutoInline: false,
-      salvandoGrupoProdutoInline: false,
-      salvandoUnidadeMedidaInline: false,
       pesquisaFornecedor: "",
       pesquisaProduto: "",
     };
   },
   computed: {
     fornecedoresDisponiveis() {
-      const base = this.normalizarLista(this.$store.state.listFornecedores)
+      const base = this.normalizarLista(this.$store.state.cadastros.listFornecedores)
         .filter(f => f.status === 'A' || f.status === 'Ativo' || f.id == this.localData?.fornecedor_id);
       const custom = this.fornecedoresCustom.filter(
         (item) => !base.some((baseItem) => baseItem.id === item.id),
@@ -866,7 +507,7 @@ export default {
       return [...base, ...custom];
     },
     produtosDisponiveis() {
-      let base = this.normalizarLista(this.$store.state.listProdutos)
+      let base = this.normalizarLista(this.$store.state.cadastros.listProdutos)
         .filter(p => p.status === 'A' || p.status === 'Ativo' || this.localData?.itens?.some(i => i.produto_id == p.id));
 
       // Filtrar por tipo de grupo se setorTipo for restritivo ('Medicamento' ou 'Material')
@@ -874,7 +515,7 @@ export default {
       const tipoSetor = (this.setorTipo || "").trim().toLowerCase();
       if (tipoSetor && tipoSetor !== "ambos" && tipoSetor !== "geral" && tipoSetor !== "todos") {
         const gruposDoTipo = this.normalizarLista(
-          this.$store.state.listGrupoProdutos,
+          this.$store.state.cadastros.listGrupoProdutos,
         )
           .filter((grupo) => (grupo.tipo || "").toLowerCase() === tipoSetor)
           .map((grupo) => grupo.id);
@@ -906,7 +547,7 @@ export default {
       );
     },
     gruposDisponiveis() {
-      let base = this.normalizarLista(this.$store.state.listGrupoProdutos);
+      let base = this.normalizarLista(this.$store.state.cadastros.listGrupoProdutos);
       const tipoSetor = (this.setorTipo || "").trim().toLowerCase();
       if (tipoSetor && tipoSetor !== "ambos" && tipoSetor !== "geral" && tipoSetor !== "todos") {
         base = base.filter((g) => (g.tipo || "").toLowerCase() === tipoSetor);
@@ -917,12 +558,24 @@ export default {
       return [...base, ...custom];
     },
     unidadesMedidaDisponiveis() {
-      return this.normalizarLista(this.$store.state.listUnidadesMedida);
+      return this.normalizarLista(this.$store.state.cadastros.listUnidadesMedida);
     },
-    mascaraDocumentoFornecedor() {
-      return this.novoFornecedor.tipo === "J"
-        ? "##.###.###/####-##"
-        : "###.###.###-##";
+    previewValorUnitario() {
+      const val = calcularValorUnitario(
+        this.itemAtual.valor,
+        this.itemAtual.quantidade,
+        "total"
+      );
+      return val !== null ? val.toFixed(4) : "0.0000";
+    },
+    totalItensCount() {
+      return this.form.itens.length;
+    },
+    totalQuantidade() {
+      return calcularTotalQuantidade(this.form.itens);
+    },
+    totalValorItens() {
+      return calcularTotalItens(this.form.itens);
     },
     podeSalvar() {
       return (
@@ -949,9 +602,6 @@ export default {
         this.fornecedorErro = "";
       }
     },
-    "novoFornecedor.tipo"() {
-      this.novoFornecedor.documento = "";
-    },
   },
   mounted() {
     this.ensureDadosDependencias();
@@ -961,10 +611,10 @@ export default {
   },
   methods: {
     ensureDadosDependencias() {
-      const produtosNoStore = this.normalizarLista(this.$store.state.listProdutos);
-      const fornecedoresNoStore = this.normalizarLista(this.$store.state.listFornecedores);
-      const unidadesNoStore = this.normalizarLista(this.$store.state.listUnidadesMedida);
-      const gruposNoStore = this.normalizarLista(this.$store.state.listGrupoProdutos);
+      const produtosNoStore = this.normalizarLista(this.$store.state.cadastros.listProdutos);
+      const fornecedoresNoStore = this.normalizarLista(this.$store.state.cadastros.listFornecedores);
+      const unidadesNoStore = this.normalizarLista(this.$store.state.cadastros.listUnidadesMedida);
+      const gruposNoStore = this.normalizarLista(this.$store.state.cadastros.listGrupoProdutos);
 
       if (fornecedoresNoStore.length === 0) {
         cadFornecedores.listAll(this);
@@ -1015,324 +665,37 @@ export default {
     },
     toggleFornecedorForm() {
       this.showFornecedorForm = !this.showFornecedorForm;
-      if (this.showFornecedorForm) {
-        this.novoFornecedor = {
-          nome: "",
-          documento: "",
-          tipo: "J",
-        };
-      }
     },
-    cancelarFornecedorForm() {
-      this.showFornecedorForm = false;
-      this.novoFornecedor = {
-        nome: "",
-        documento: "",
-        tipo: "J",
-      };
-    },
-    async salvarFornecedorInline() {
-      if (this.salvandoFornecedorInline) return;
-
-      if (!this.novoFornecedor.nome) {
-        this.notificar("Informe o nome do fornecedor", "error");
-        return;
-      }
-
-      const documentoNumerico = (this.novoFornecedor.documento || "").replace(
-        /\D/g,
-        "",
-      );
-
-      const isPessoaJuridica = this.novoFornecedor.tipo === "J";
-      const documentoValido = isPessoaJuridica
-        ? documentoNumerico.length === 14
-        : documentoNumerico.length === 11;
-
-      if (!documentoValido) {
-        const mensagem = isPessoaJuridica
-          ? "CNPJ deve ter 14 dígitos"
-          : "CPF deve ter 11 dígitos";
-        this.notificar(mensagem, "error");
-        return;
-      }
-
-      const payload = {
-        fornecedor: {
-          razao_social_nome: this.novoFornecedor.nome,
-          tipo_pessoa: this.novoFornecedor.tipo,
-          status: "A",
-          cnpj: isPessoaJuridica ? documentoNumerico : null,
-          cpf: !isPessoaJuridica ? documentoNumerico : null,
-        },
-      };
-
-      this.salvandoFornecedorInline = true;
-
-      try {
-        const response = await this.$axios.post("/fornecedores/add", payload, {
-          headers: {
-            Authorization: "Bearer " + this.$store.getters.getUserToken,
-          },
-        });
-
-        if (response.data?.status && response.data.data?.id) {
-          const fornecedor = response.data.data;
-          this.fornecedoresCustom = [
-            ...this.fornecedoresCustom.filter((f) => f.id !== fornecedor.id),
-            fornecedor,
-          ];
-          this.form.fornecedorId = fornecedor.id;
-          this.notificar("Fornecedor cadastrado com sucesso", "success");
-          this.showFornecedorForm = false;
-          this.novoFornecedor = {
-            nome: "",
-            documento: "",
-            tipo: "J",
-          };
+    onFornecedorCreated(fornecedor) {
+      if (fornecedor && fornecedor.id) {
+        this.fornecedoresCustom = [
+          ...this.fornecedoresCustom.filter((f) => f.id !== fornecedor.id),
+          fornecedor,
+        ];
+        this.form.fornecedorId = String(fornecedor.id);
+        this.notificar("Fornecedor selecionado automaticamente", "success");
+        if (cadFornecedores?.listAll) {
           cadFornecedores.listAll(this);
-        } else {
-          const mensagem =
-            response.data?.message ||
-            "Não foi possível cadastrar o fornecedor. Tente novamente.";
-          this.notificar(mensagem, "error");
         }
-      } catch (error) {
-        const mensagem =
-          error.response?.data?.message ||
-          error.response?.data?.erros?.[0] ||
-          "Erro ao cadastrar fornecedor. Verifique os dados e tente novamente.";
-        this.notificar(mensagem, "error");
-        console.error("Erro ao cadastrar fornecedor inline", error);
-      } finally {
-        this.salvandoFornecedorInline = false;
       }
+      this.showFornecedorForm = false;
     },
     toggleProdutoForm() {
       this.showProdutoForm = !this.showProdutoForm;
-      if (this.showProdutoForm) {
-        this.novoProduto = {
-          nome: "",
-          unidade_medida_id: "",
-          status: "A",
-          grupo_produto_id: "",
-          codigo_simpas: "",
-          marca: "",
-          codigo_barras: "",
-        };
-        this.showGrupoProdutoForm = false;
-        this.novoGrupoProduto = {
-          nome: "",
-          tipo: "Material",
-        };
-        this.showUnidadeMedidaForm = false;
-        this.novaUnidadeMedida = { nome: "" };
-      }
     },
-    toggleGrupoProdutoForm() {
-      this.showGrupoProdutoForm = !this.showGrupoProdutoForm;
-      if (this.showGrupoProdutoForm) {
-        this.novoGrupoProduto = {
-          nome: "",
-          tipo: "Material",
-        };
-      }
-    },
-    cancelarProdutoForm() {
-      this.showProdutoForm = false;
-      this.novoProduto = {
-        nome: "",
-        unidade_medida_id: "",
-        status: "A",
-        grupo_produto_id: "",
-        codigo_simpas: "",
-        marca: "",
-        codigo_barras: "",
-      };
-      this.cancelarGrupoProdutoForm();
-      this.cancelarUnidadeMedidaForm();
-    },
-    cancelarGrupoProdutoForm() {
-      this.showGrupoProdutoForm = false;
-      this.novoGrupoProduto = {
-        nome: "",
-        tipo: "Material",
-      };
-    },
-    async salvarGrupoProdutoInline() {
-      if (this.salvandoGrupoProdutoInline) return;
-
-      if (!this.novoGrupoProduto.nome) {
-        this.notificar("Informe o nome do grupo", "error");
-        return;
-      }
-
-      const payload = {
-        grupoProduto: {
-          nome: this.novoGrupoProduto.nome,
-          tipo: this.novoGrupoProduto.tipo || "Material",
-          status: "A",
-        },
-      };
-
-      this.salvandoGrupoProdutoInline = true;
-
-      try {
-        const response = await this.$axios.post("/grupoProduto/add", payload, {
-          headers: {
-            Authorization: "Bearer " + this.$store.getters.getUserToken,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (response.data?.status && response.data.data?.id) {
-          const grupo = response.data.data;
-          this.gruposCustom = [
-            ...this.gruposCustom.filter((g) => g.id !== grupo.id),
-            grupo,
-          ];
-          this.novoProduto.grupo_produto_id = grupo.id;
-          this.notificar("Grupo de produto cadastrado com sucesso", "success");
-          cadGrupoProduto.listAll(this);
-          this.cancelarGrupoProdutoForm();
-        } else {
-          const mensagem =
-            response.data?.message ||
-            "Não foi possível cadastrar o grupo. Tente novamente.";
-          this.notificar(mensagem, "error");
-        }
-      } catch (error) {
-        const mensagem =
-          error.response?.data?.message ||
-          "Erro ao cadastrar grupo de produto. Verifique os dados e tente novamente.";
-        this.notificar(mensagem, "error");
-        console.error("Erro ao cadastrar grupo de produto inline", error);
-      } finally {
-        this.salvandoGrupoProdutoInline = false;
-      }
-    },
-    toggleUnidadeMedidaForm() {
-      this.showUnidadeMedidaForm = !this.showUnidadeMedidaForm;
-      if (this.showUnidadeMedidaForm) {
-        this.novaUnidadeMedida = { nome: "", quantidade_unidade_minima: 1 };
-      }
-    },
-    cancelarUnidadeMedidaForm() {
-      this.showUnidadeMedidaForm = false;
-      this.novaUnidadeMedida = { nome: "", quantidade_unidade_minima: 1 };
-    },
-    async salvarUnidadeMedidaInline() {
-      if (this.salvandoUnidadeMedidaInline) return;
-
-      if (!this.novaUnidadeMedida.nome || !this.novaUnidadeMedida.quantidade_unidade_minima) {
-        this.notificar("Informe o nome e a quantidade da unidade", "error");
-        return;
-      }
-
-      const payload = {
-        unidadeMedida: {
-          nome: this.novaUnidadeMedida.nome,
-          quantidade_unidade_minima: parseFloat(this.novaUnidadeMedida.quantidade_unidade_minima),
-          status: "A",
-        },
-      };
-
-      this.salvandoUnidadeMedidaInline = true;
-
-      try {
-        const response = await this.$axios.post("/unidadeMedida/add", payload, {
-          headers: {
-            Authorization: "Bearer " + this.$store.getters.getUserToken,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (response.data?.status && response.data.data?.id) {
-          const unidade = response.data.data;
-          this.novoProduto.unidade_medida_id = unidade.id;
-          this.notificar("Unidade de medida cadastrada com sucesso", "success");
-          cadUnidadesMedida.listAll(this);
-          this.cancelarUnidadeMedidaForm();
-        } else {
-          this.notificar("Não foi possível cadastrar a unidade.", "error");
-        }
-      } catch (error) {
-        this.notificar("Erro ao cadastrar unidade de medida.", "error");
-        console.error("Erro ao cadastrar unidade inline", error);
-      } finally {
-        this.salvandoUnidadeMedidaInline = false;
-      }
-    },
-    async salvarProdutoInline() {
-      if (this.salvandoProdutoInline) return;
-
-      if (!this.novoProduto.nome) {
-        this.notificar("Informe o nome do produto", "error");
-        return;
-      }
-
-      if (!this.novoProduto.unidade_medida_id) {
-        this.notificar("Selecione uma unidade de medida", "error");
-        return;
-      }
-
-      const payload = {
-        produto: {
-          nome: this.novoProduto.nome,
-          unidade_medida_id: this.novoProduto.unidade_medida_id,
-          status: this.novoProduto.status || "A",
-          grupo_produto_id: this.novoProduto.grupo_produto_id || null,
-          codigo_simpas: this.novoProduto.codigo_simpas || "",
-          codigo_barras: this.novoProduto.codigo_barras || "",
-          marca: this.novoProduto.marca || "",
-        },
-      };
-
-      this.salvandoProdutoInline = true;
-
-      try {
-        const response = await this.$axios.post("/produtos/add", payload, {
-          headers: {
-            Authorization: "Bearer " + this.$store.getters.getUserToken,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (response.data?.status && response.data.data?.id) {
-          const produto = response.data.data;
-          this.produtosCustom = [
-            ...this.produtosCustom.filter((p) => p.id !== produto.id),
-            produto,
-          ];
-          this.produtoSelecionadoId = produto.id;
-          this.notificar("Produto cadastrado com sucesso", "success");
-          this.showProdutoForm = false;
-          this.showGrupoProdutoForm = false;
-          this.novoProduto = {
-            nome: "",
-            unidade_medida_id: "",
-            status: "A",
-            grupo_produto_id: "",
-            codigo_simpas: "",
-            marca: "",
-            codigo_barras: "",
-          };
+    onProdutoCreated(produto) {
+      if (produto && produto.id) {
+        this.produtosCustom = [
+          ...this.produtosCustom.filter((p) => p.id !== produto.id),
+          produto,
+        ];
+        this.produtoSelecionadoId = String(produto.id);
+        this.notificar("Produto selecionado automaticamente", "success");
+        if (cadProdutos?.listAll) {
           cadProdutos.listAll(this);
-        } else {
-          const mensagem =
-            response.data?.message ||
-            "Não foi possível cadastrar o produto. Tente novamente.";
-          this.notificar(mensagem, "error");
         }
-      } catch (error) {
-        const mensagem =
-          error.response?.data?.message ||
-          "Erro ao cadastrar produto. Verifique os dados e tente novamente.";
-        this.notificar(mensagem, "error");
-        console.error("Erro ao cadastrar produto inline", error);
-      } finally {
-        this.salvandoProdutoInline = false;
       }
+      this.showProdutoForm = false;
     },
     adicionarProduto() {
       if (!this.produtoSelecionadoId) {
@@ -1385,16 +748,12 @@ export default {
         return;
       }
 
-      // Calcular valor_unitario
-      let valorUnitario = null;
-      if (this.itemAtual.valor !== '' && this.itemAtual.valor !== null && !isNaN(parseFloat(this.itemAtual.valor))) {
-        const v = parseFloat(this.itemAtual.valor);
-        if (this.itemAtual.tipoValor === 'total') {
-          valorUnitario = this.itemAtual.quantidade > 0 ? parseFloat((v / this.itemAtual.quantidade).toFixed(4)) : null;
-        } else {
-          valorUnitario = parseFloat(v.toFixed(4));
-        }
-      }
+      // Calcular valor_unitario via utility matemática pura
+      const valorUnitario = calcularValorUnitario(
+        this.itemAtual.valor,
+        this.itemAtual.quantidade,
+        this.itemAtual.tipoValor
+      );
 
       const item = {
         localId: `item-${Date.now()}-${Math.random()}`,
@@ -1493,7 +852,7 @@ export default {
 
         const response = await this.$axios.post("/entrada/add", payload, {
           headers: {
-            Authorization: "Bearer " + this.$store.getters.getUserToken,
+            Authorization: "Bearer " + this.$store.getters["auth/getUserToken"],
             "Content-Type": "application/json",
           },
         });
@@ -1556,17 +915,6 @@ export default {
       };
       this.showFornecedorForm = false;
       this.showProdutoForm = false;
-      this.novoProduto = {
-        nome: "",
-        unidade_medida_id: "",
-        status: "A",
-        grupo_produto_id: "",
-        codigo_simpas: "",
-        marca: "",
-        codigo_barras: "",
-      };
-      this.cancelarGrupoProdutoForm();
-      this.cancelarUnidadeMedidaForm();
     },
     notificar(mensagem, tipo = "info") {
       if (this.$toastr) {
