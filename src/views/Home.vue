@@ -25,37 +25,43 @@ import {
   TrendingDownIcon,
   TruckIcon,
   PackageIcon,
+  PackageCheckIcon,
   ChevronRightIcon,
   ActivityIcon,
 } from "lucide-vue-next";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
-// Funções de carregamento
-import functionsEstoque from "@/functions/cad_estoque";
-import functionsMovimentacao from "@/functions/cad_movimentacao";
+// Serviço de métricas agregadas do Dashboard
+import { getDashboardMetrics } from "@/functions/dashboard";
 import functionsUsuarioSetor from "@/functions/cad_usuario_setor";
 
 const store = useStore();
 const router = useRouter();
 
 const loading = ref(true);
-const stats = ref({
-  totalItens: 0,
-  pendentesEntrada: 0,
-  pendentesSaida: 0,
-  abaixoMinimo: 0,
-  pedidosEntreguesMes: 0,
-  itensSolicitadosMes: 0,
+
+const metrics = ref({
+  stats: {
+    totalItens: 0,
+    pendentesEntrada: 0,
+    pendentesSaida: 0,
+    abaixoMinimo: 0,
+    pedidosEntreguesMes: 0,
+    itensSolicitadosMes: 0,
+  },
+  alerts: [],
+  recentRequests: [],
 });
 
-const alerts = ref([]);
-const recentRequests = ref([]);
+const stats = computed(() => metrics.value.stats);
+const alerts = computed(() => metrics.value.alerts);
+const recentRequests = computed(() => metrics.value.recentRequests);
 
-const user = computed(() => store.state.user || {});
-const setorAtual = computed(() => store.state.setorDetails || {});
+const user = computed(() => store.state.auth.user || {});
+const setorAtual = computed(() => store.state.estoque.setorDetails || {});
 
 const isAdmin = computed(() => {
-  return store.getters.isSuperAdmin;
+  return store.getters["auth/isSuperAdmin"];
 });
 
 const isCAF = computed(() => {
@@ -64,8 +70,8 @@ const isCAF = computed(() => {
 });
 
 const isSolicitante = computed(() => {
-  if (store.getters.isSuperAdmin) return false;
-  const list = store.state.listUsuariosSetor || [];
+  if (store.getters["auth/isSuperAdmin"]) return false;
+  const list = store.state.estoque.listUsuariosSetor || [];
   const found = list.find((u) => {
     const userId = u.usuario_id || u.user_id || u.id || u.usuario?.id;
     const perfil = (u.perfil || u.pivot?.perfil || "").toString().toLowerCase();
@@ -75,8 +81,8 @@ const isSolicitante = computed(() => {
 });
 
 const isAlmoxarife = computed(() => {
-  if (store.getters.isSuperAdmin) return false;
-  const list = store.state.listUsuariosSetor || [];
+  if (store.getters["auth/isSuperAdmin"]) return false;
+  const list = store.state.estoque.listUsuariosSetor || [];
   const found = list.find((u) => {
     const userId = u.usuario_id || u.user_id || u.id || u.usuario?.id;
     const perfil = (u.perfil || u.pivot?.perfil || "").toString().toLowerCase();
@@ -92,85 +98,43 @@ const isAlmoxarife = computed(() => {
 
 const loadDashboardData = async () => {
   loading.value = true;
-  const setorId = store.state.setorAtualId;
+  const setorId = store.state.estoque.setorAtualId;
 
   if (!setorId) {
     router.push("/setor-selection");
     return;
   }
 
-  const context = { $axios: axios, $store: store };
+  // Executa requisições otimizadas: métricas agregadas do backend + usuários do setor (se necessário)
+  const promises = [
+    getDashboardMetrics({ setorId }),
+  ];
 
-  // Paralelizar requests
-  await Promise.all([
-    functionsEstoque.listAll(context),
-    functionsMovimentacao.listAll(context),
-    functionsUsuarioSetor.listAll
-      ? functionsUsuarioSetor.listAll(context)
-      : Promise.resolve(),
-  ]);
-
-  // Processar dados do estoque
-  const estoque = store.state.listEstoque || [];
-  stats.value.totalItens = estoque.length;
-  stats.value.abaixoMinimo = estoque.filter(
-    (i) => i.abaixo_minimo || i.quantidade_atual <= i.quantidade_minima,
-  ).length;
-
-  alerts.value = estoque
-    .filter((i) => i.abaixo_minimo || i.quantidade_atual <= i.quantidade_minima)
-    .slice(0, 5);
-
-  // Processar movimentações
-  const movimentacoes = store.state.listMovimentacoes || [];
-
-  // Pendentes de Entrada (Onde este setor é o destino e status é P)
-  stats.value.pendentesEntrada = movimentacoes.filter(
-    (m) => m.setor_destino_id == setorId && m.status_solicitacao === "P",
-  ).length;
-
-  // Pendentes de Saída (Onde este setor é a origem e status é P)
-  stats.value.pendentesSaida = movimentacoes.filter(
-    (m) => m.setor_origem_id == setorId && m.status_solicitacao === "P",
-  ).length;
-
-  // Estatísticas específicas para setores sem estoque (consumidores)
-  if (!setorAtual.value.estoque) {
-    const dataAtual = new Date();
-    const mesAtual = dataAtual.getMonth();
-    const anoAtual = dataAtual.getFullYear();
-
-    const movsMes = movimentacoes.filter((m) => {
-      const dataMov = new Date(m.created_at);
-      return (
-        m.setor_destino_id == setorId &&
-        dataMov.getMonth() === mesAtual &&
-        dataMov.getFullYear() === anoAtual
-      );
-    });
-
-    stats.value.pedidosEntreguesMes = movsMes.filter((m) =>
-      ["C", "E"].includes(m.status_solicitacao) || m.status_solicitacao === null
-    ).length;
-
-    stats.value.itensSolicitadosMes = movsMes.reduce(
-      (acc, m) => acc + (m.itens ? m.itens.length : 0),
-      0
+  if (
+    functionsUsuarioSetor?.listAll &&
+    (!store.state.estoque.listUsuariosSetor || store.state.estoque.listUsuariosSetor.length === 0)
+  ) {
+    promises.push(
+      functionsUsuarioSetor.listAll({ $axios: axios, $store: store }).catch(() => {})
     );
   }
 
-  // Lista de solicitações recentes (para ambos, prioriza pendentes)
-  const isConsumer = !setorAtual.value.estoque;
-  recentRequests.value = movimentacoes
-    .filter((m) => {
-      if (isConsumer) {
-        // Se for consumidor, quer ver o histórico das próprias requisições
-        return m.setor_destino_id == setorId;
-      }
-      return m.status_solicitacao === "P";
-    })
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 5);
+  const [metricsResponse] = await Promise.all(promises);
+
+  if (metricsResponse && metricsResponse.status && metricsResponse.data) {
+    metrics.value = {
+      stats: {
+        totalItens: metricsResponse.data.stats?.totalItens ?? 0,
+        pendentesEntrada: metricsResponse.data.stats?.pendentesEntrada ?? 0,
+        pendentesSaida: metricsResponse.data.stats?.pendentesSaida ?? 0,
+        abaixoMinimo: metricsResponse.data.stats?.abaixoMinimo ?? 0,
+        pedidosEntreguesMes: metricsResponse.data.stats?.pedidosEntreguesMes ?? 0,
+        itensSolicitadosMes: metricsResponse.data.stats?.itensSolicitadosMes ?? 0,
+      },
+      alerts: metricsResponse.data.alerts || [],
+      recentRequests: metricsResponse.data.recentRequests || [],
+    };
+  }
 
   store.commit("setPageHeader", {
     title: `Olá, ${user.value.name || "Usuário"}!`,
@@ -578,14 +542,14 @@ onMounted(loadDashboardData);
                       <div
                         :class="[
                           'w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold',
-                          req.setor_destino_id == store.state.setorAtualId
+                          req.setor_destino_id == store.state.estoque.setorAtualId
                             ? 'bg-indigo-500'
                             : 'bg-emerald-500',
                         ]"
                       >
                         <ArrowDownIcon
                           v-if="
-                            req.setor_destino_id == store.state.setorAtualId
+                            req.setor_destino_id == store.state.estoque.setorAtualId
                           "
                           class="w-5 h-5"
                         />
@@ -598,7 +562,7 @@ onMounted(loadDashboardData);
                           #{{ req.id }} -
                           <span v-if="setorAtual.estoque">
                             {{
-                              req.setor_origem_id == store.state.setorAtualId
+                              req.setor_origem_id == store.state.estoque.setorAtualId
                                 ? "Dest: " +
                                   (req.setor_destino?.nome || "Setor")
                                 : "Orig: " + (req.setor_origem?.nome || "Setor")
