@@ -148,7 +148,7 @@
                   v-if="pedido.status_solicitacao === 'C'"
                   size="sm"
                   variant="default"
-                  @click.stop="enviarRascunhoDireto(pedido)"
+                  @click.stop="enviarParaAnalise(pedido)"
                   :disabled="actionInProgress === pedido.id"
                   class="h-8 px-2.5 bg-green-600 hover:bg-green-700 text-white text-xs flex items-center gap-1"
                   title="Enviar Rascunho para Análise"
@@ -417,6 +417,7 @@ import {
 import { Input } from "@/components/ui/input";
 import ModalDevolucaoPedido from "./ModalDevolucaoPedido.vue";
 import { setorCookie } from "@/utils/setorCookie";
+import { usePedidosStateMachine } from "@/composables/usePedidosStateMachine";
 
 const router = useRouter();
 const store = useStore();
@@ -429,7 +430,6 @@ const pedidoParaDevolver = ref(null);
 const pedidos = ref([]);
 const loading = ref(true);
 const expanded = ref({});
-const actionInProgress = ref(null);
 const showCancelDialog = ref(false);
 const showDeleteDialog = ref(false);
 const pedidoSelecionado = ref(null);
@@ -629,7 +629,7 @@ const fetchPedidos = async () => {
   loading.value = true;
   try {
     const token = localStorage.getItem("token");
-    const rawSetorId = store.state.setorAtualId || store.state.setorDetails?.id || (setorCookie?.getSectorId ? setorCookie.getSectorId() : null);
+    const rawSetorId = store.state.estoque.setorAtualId || store.state.estoque.setorDetails?.id || (setorCookie?.getSectorId ? setorCookie.getSectorId() : null);
 
     if (!rawSetorId) {
       pedidos.value = [];
@@ -647,7 +647,7 @@ const fetchPedidos = async () => {
 
     if (response.data.status) {
       const data = response.data.data?.data || response.data.data || [];
-      const currentUserId = store.state.user?.id;
+      const currentUserId = store.state.auth.user?.id;
       pedidos.value = data.filter((mov) => {
         const destId = Number(mov.setor_destino_id ?? mov.setorDestino?.id);
         const origId = Number(mov.setor_origem_id ?? mov.setorOrigem?.id);
@@ -672,7 +672,7 @@ const fetchPedidos = async () => {
 };
 
 watch(
-  () => [store.state.setorAtualId, store.state.setorDetails?.id],
+  () => [store.state.estoque.setorAtualId, store.state.estoque.setorDetails?.id],
   () => {
     fetchPedidos();
   }
@@ -692,36 +692,13 @@ const editarPedido = (pedido) => {
   router.replace({ query: { tab: "pedido" } });
 };
 
-const enviarRascunhoDireto = async (pedido) => {
-  actionInProgress.value = pedido.id;
-  try {
-    const token = localStorage.getItem("token");
-    const response = await axios.post(
-      `/movimentacao/${pedido.id}/process`,
-      { action: "submit" },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    if (response.data.status) {
-      toast({
-        title: "Sucesso",
-        description: `Rascunho #${pedido.id} enviado com sucesso para análise!`,
-      });
-      await fetchPedidos();
-    } else {
-      throw new Error(response.data.message || "Erro ao enviar rascunho");
-    }
-  } catch (error) {
-    console.error("Erro ao enviar rascunho:", error);
-    toast({
-      title: "Erro",
-      description: error.response?.data?.message || "Não foi possível enviar o rascunho.",
-      variant: "destructive",
-    });
-  } finally {
-    actionInProgress.value = null;
-  }
-};
+const {
+  enviarParaAnalise,
+  cancelarPedido,
+  excluirRascunho,
+  actionInProgress,
+  isLoadingAcao,
+} = usePedidosStateMachine(fetchPedidos);
 
 const abrirCancelarPedido = (pedido) => {
   pedidoSelecionado.value = pedido;
@@ -733,37 +710,8 @@ const confirmarCancelamento = async () => {
   if (!pedido) return;
 
   showCancelDialog.value = false;
-  actionInProgress.value = pedido.id;
-
-  try {
-    const token = localStorage.getItem("token");
-    const response = await axios.post(
-      `/movimentacao/${pedido.id}/process`,
-      { action: "cancel" },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    if (response.data.status) {
-      toast({
-        title: "Sucesso",
-        description: "Pedido cancelado com sucesso.",
-      });
-      await fetchPedidos();
-    } else {
-      throw new Error(response.data.message);
-    }
-  } catch (error) {
-    console.error("Erro ao cancelar pedido:", error);
-    toast({
-      title: "Erro",
-      description:
-        error.response?.data?.message || "Não foi possível cancelar o pedido.",
-      variant: "destructive",
-    });
-  } finally {
-    actionInProgress.value = null;
-    pedidoSelecionado.value = null;
-  }
+  await cancelarPedido(pedido);
+  pedidoSelecionado.value = null;
 };
 
 const abrirExcluirRascunho = (pedido) => {
@@ -776,37 +724,8 @@ const confirmarExclusaoRascunho = async () => {
   if (!pedido) return;
 
   showDeleteDialog.value = false;
-  actionInProgress.value = pedido.id;
-
-  try {
-    const token = localStorage.getItem("token");
-    const response = await axios.post(
-      `/movimentacao/${pedido.id}/delete`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    if (response.data.status) {
-      toast({
-        title: "Sucesso",
-        description: "Rascunho excluído com sucesso.",
-      });
-      await fetchPedidos();
-    } else {
-      throw new Error(response.data.message);
-    }
-  } catch (error) {
-    console.error("Erro ao excluir rascunho:", error);
-    toast({
-      title: "Erro",
-      description:
-        error.response?.data?.message || "Não foi possível excluir o rascunho.",
-      variant: "destructive",
-    });
-  } finally {
-    actionInProgress.value = null;
-    pedidoSelecionado.value = null;
-  }
+  await excluirRascunho(pedido);
+  pedidoSelecionado.value = null;
 };
 
 const imprimirPedido = (pedido) => {
