@@ -10,7 +10,7 @@
             </div>
             <div>
               <button class="btn btn-outline-secondary me-2" @click="resetFilters">Limpar</button>
-              <button class="btn btn-primary" @click="loadEstoque">Atualizar</button>
+              <button class="btn btn-primary" @click="loadEstoque(true)">Atualizar</button>
             </div>
           </div>
 
@@ -53,7 +53,7 @@
                 </div>
                 <div class="col-md-3">
                   <label class="form-label">Setor</label>
-                  <select v-model.number="filters.setor_id" class="form-select" :disabled="!podeFiltrarSetor">
+                  <select v-model.number="filters.setor_id" class="form-select" :disabled="!podeFiltrarSetor" @change="currentPage = 1">
                     <option v-if="podeFiltrarSetor" :value="''">Todos</option>
                     <option v-for="s in setoresFiltrados" :key="s.id" :value="s.id">{{ s.nome }}</option>
                   </select>
@@ -63,7 +63,7 @@
                 </div>
                 <div class="col-md-3">
                   <label class="form-label">Grupo de Produto</label>
-                  <select v-model.number="filters.grupo_produto_id" class="form-select">
+                  <select v-model.number="filters.grupo_produto_id" class="form-select" @change="currentPage = 1">
                     <option :value="''">Todos</option>
                     <option v-for="g in gruposProdutos" :key="g.id" :value="g.id">{{ g.nome }}</option>
                   </select>
@@ -87,7 +87,7 @@
               <div v-else>
                 <div class="mb-3 d-flex flex-wrap gap-3 align-items-center">
                   <span class="badge bg-primary fs-6">
-                    Total: {{ estoque.length }} itens
+                    Total: {{ totalRecords }} itens
                   </span>
                   <span v-if="totalizadores.total_produtos_disponiveis" class="badge bg-success fs-6">
                     Disponíveis: {{ totalizadores.total_produtos_disponiveis }}
@@ -252,6 +252,24 @@
                     </tbody>
                   </table>
                 </div>
+
+                <!-- Paginação -->
+                <div v-if="lastPage > 1" class="d-flex justify-content-end mt-3">
+                  <nav aria-label="Navegação de páginas">
+                    <ul class="pagination pagination-sm mb-0">
+                      <li class="page-item" :class="{ disabled: currentPage === 1 }">
+                        <button class="page-link" @click="changePage(currentPage - 1)" :disabled="currentPage === 1">Anterior</button>
+                      </li>
+                      <li class="page-item disabled">
+                        <span class="page-link">Página {{ currentPage }} de {{ lastPage }}</span>
+                      </li>
+                      <li class="page-item" :class="{ disabled: currentPage === lastPage }">
+                        <button class="page-link" @click="changePage(currentPage + 1)" :disabled="currentPage === lastPage">Próximo</button>
+                      </li>
+                    </ul>
+                  </nav>
+                </div>
+
                 <div v-if="estoque.length===0" class="text-center py-5 text-muted">
                   <span class="material-icons" style="font-size: 48px; opacity: 0.3;">inventory_2</span>
                   <p class="mt-3 mb-0">Nenhum item em estoque encontrado</p>
@@ -271,9 +289,7 @@ import functionsRelatorios from '@/functions/cad_relatorios.js'
 import functionsPolos from '@/functions/cad_unidades_polos.js'
 import functionsSetores from '@/functions/cad_setores.js'
 import functionsGrupoProduto from '@/functions/cad_grupo_produto.js'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils'
 
 export default {
   name: 'EstoqueReport',
@@ -286,6 +302,9 @@ export default {
         grupo_produto_id: '',
       },
       estoque: [],
+      currentPage: 1,
+      lastPage: 1,
+      totalRecords: 0,
       totalizadores: {
         total_itens: 0,
         total_produtos_disponiveis: 0,
@@ -320,20 +339,20 @@ export default {
   computed: {
     /** Setor em que o usuário está logado (cookie/store) */
     setorAtualId() {
-      const id = this.$store.state.setorAtualId || this.$store.state.setorDetails?.id;
+      const id = this.$store.state.estoque.setorAtualId || this.$store.state.estoque.setorDetails?.id;
       return id ? Number(id) : '';
     },
     setorAtualDetalhes() {
-      return this.$store.state.setorDetails || null;
+      return this.$store.state.estoque.setorDetails || null;
     },
     listUsuariosSetor() {
-      return this.$store.state.listUsuariosSetor || [];
+      return this.$store.state.estoque.listUsuariosSetor || [];
     },
     /** Perfil 'admin' no setor atual (mesma lógica do Sidebar/Relatórios) */
     isAdmin() {
-      if (this.$store.getters.isSuperAdmin) return true;
+      if (this.$store.getters["auth/isSuperAdmin"]) return true;
 
-      const user = this.$store.state.user;
+      const user = this.$store.state.auth.user;
       if (!user) return false;
       return this.listUsuariosSetor.some((u) => {
         const uid = u.usuario_id || u.user_id || u.id || (u.usuario && u.usuario.id);
@@ -342,7 +361,7 @@ export default {
       });
     },
     isAdminPolo() {
-      return !!this.$store.state.user?.is_admin_polo;
+      return !!this.$store.state.auth.user?.is_admin_polo;
     },
     /** Somente admin (setor, polo ou super) filtra o estoque de outros setores */
     podeFiltrarSetor() {
@@ -366,7 +385,7 @@ export default {
       if (this.filtrandoSetorLogado) {
         return this.setorAtualDetalhes?.nome_exibicao
           || this.setorAtualDetalhes?.nome
-          || this.$store.state.setorAtualNome
+          || this.$store.state.estoque.setorAtualNome
           || 'Setor atual';
       }
       return 'Setor selecionado';
@@ -381,10 +400,10 @@ export default {
       return '';
     },
     polos() {
-      return this.$store.state.listPolos || [];
+      return this.$store.state.cadastros.listPolos || [];
     },
     setores() {
-      const setoresData = this.$store.state.listSetoresGerais;
+      const setoresData = this.$store.state.cadastros.listSetoresGerais;
       if (Array.isArray(setoresData)) return setoresData;
       if (setoresData?.data) return setoresData.data;
       return [];
@@ -399,7 +418,7 @@ export default {
           id: this.setorAtualId,
           nome: this.setorAtualDetalhes?.nome_exibicao
             || this.setorAtualDetalhes?.nome
-            || this.$store.state.setorAtualNome
+            || this.$store.state.estoque.setorAtualNome
             || 'Meu setor',
         }];
       }
@@ -410,7 +429,7 @@ export default {
       return Array.isArray(this.estoque) && this.estoque.some(e => e.pode_ver_valores === true);
     },
     gruposProdutos() {
-      return this.$store.state.listGrupoProdutos || [];
+      return this.$store.state.cadastros.listGrupoProdutos || [];
     }
   },
   methods: {
@@ -423,15 +442,19 @@ export default {
     },
     voltarParaSetorLogado() {
       this.applyDefaultSetorFilter();
-      this.loadEstoque();
+      this.loadEstoque(true);
     },
     onPoloChange() {
       this.filters.setor_id = '';
+      this.currentPage = 1;
     },
     toggleRow(itemId) {
       this.expandedRows[itemId] = !this.expandedRows[itemId];
     },
-    async loadEstoque() {
+    async loadEstoque(resetPage = false) {
+      if (resetPage === true) {
+        this.currentPage = 1;
+      }
       // Não-admin fica restrito ao estoque do setor logado
       if (!this.podeFiltrarSetor && this.setorAtualId) {
         this.filters.setor_id = this.setorAtualId;
@@ -439,14 +462,17 @@ export default {
 
       this.loading = true;
       try {
-        const payloadFilters = {};
+        const payloadFilters = { page: this.currentPage };
         if (this.filters.polo_id) payloadFilters.polo_id = this.filters.polo_id;
         if (this.filters.setor_id) payloadFilters.setor_id = this.filters.setor_id;
         if (this.filters.grupo_produto_id) payloadFilters.grupo_produto_id = this.filters.grupo_produto_id;
 
         const result = await functionsRelatorios.listEstoqueReport(this, payloadFilters);
         if (result && result.success) {
-          this.estoque = result.data || [];
+          this.estoque = result.data?.data || [];
+          this.currentPage = result.data?.current_page || 1;
+          this.lastPage = result.data?.last_page || 1;
+          this.totalRecords = result.data?.total || 0;
           
           // Capturar totalizadores da resposta
           if (result.totalizadores) {
@@ -460,16 +486,23 @@ export default {
           });
         } else {
           this.estoque = [];
+          this.currentPage = 1;
+          this.lastPage = 1;
+          this.totalRecords = 0;
           this.totalizadores = {
             total_itens: 0,
             total_produtos_disponiveis: 0,
             total_produtos_indisponiveis: 0,
-            total_abaixo_minimo: 0
+            total_abaixo_minimo: 0,
+            valor_total_estoque: 0
           };
         }
       } catch (e) {
         console.error('Erro ao carregar relatório de estoque:', e);
         this.estoque = [];
+        this.currentPage = 1;
+        this.lastPage = 1;
+        this.totalRecords = 0;
         this.totalizadores = {
           total_itens: 0,
           total_produtos_disponiveis: 0,
@@ -480,10 +513,17 @@ export default {
         this.loading = false;
       }
     },
+    changePage(page) {
+      if (page >= 1 && page <= this.lastPage) {
+        this.currentPage = page;
+        this.loadEstoque();
+      }
+    },
     resetFilters() {
       this.filters.polo_id = '';
       this.filters.setor_id = '';
       this.filters.grupo_produto_id = '';
+      this.currentPage = 1;
       this.applyDefaultSetorFilter();
       this.loadEstoque();
     },
@@ -626,63 +666,21 @@ export default {
         }
       }
       
-      // Criar workbook e worksheet
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Estoque');
-      
-      // Ajustar largura das colunas
-      const colWidths = [
-        { wch: 35 }, // Produto
-        { wch: 18 }, // Cód. SIMPAS
-        { wch: 15 }, // Cód.Barras
-        { wch: 12 }, // Unid.Medida
-        { wch: 20 }, // Grupo
-        { wch: 40 }, // Setor / Polo
-        { wch: 15 }, // Localização
-        { wch: 10 }, // Qtd Atual
-        { wch: 10 }, // Qtd Mínima
-        { wch: 12 }, // Status
-        { wch: 15 }, // Lote
-        { wch: 10 }, // Qtd Lote
-        { wch: 12 }, // Fabricação
-        { wch: 12 }, // Vencimento
-        { wch: 12 }, // Dias p/ Vencer
-        { wch: 12 }  // Status Lote
-      ];
-      ws['!cols'] = colWidths;
-      
-      // Baixar arquivo
-      XLSX.writeFile(wb, `relatorio_estoque_${new Date().toISOString().slice(0,10)}.xlsx`);
+      exportToExcel({
+        data,
+        columns: [
+          { wch: 35 }, { wch: 18 }, { wch: 15 }, { wch: 12 },
+          { wch: 20 }, { wch: 40 }, { wch: 15 }, { wch: 10 },
+          { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 10 },
+          { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }
+        ],
+        filename: `relatorio_estoque_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: 'Estoque',
+      });
     },
     exportPdf() {
       if (!this.estoque || this.estoque.length === 0) return;
-      
-      // Criar documento PDF em paisagem (landscape)
-      const doc = new jsPDF('landscape', 'mm', 'a4');
-      
-      // Cabeçalho
-      doc.setFontSize(16);
-      doc.text('Relatorio de Estoque Atual', 14, 15);
-      
-      doc.setFontSize(10);
-      const dataHoje = new Date().toLocaleDateString('pt-BR');
-      doc.text(`Data: ${dataHoje}`, 14, 22);
 
-      // Setor do estoque solicitado
-      const setorLinha = this.setorSelecionadoPolo
-        ? `${this.setorSelecionadoNome} - ${this.setorSelecionadoPolo}`
-        : this.setorSelecionadoNome;
-      doc.setFontSize(10);
-      doc.text(`Setor: ${setorLinha}`, 14, 28);
-      
-      // Adicionar totalizadores
-      if (this.totalizadores.total_itens > 0) {
-        doc.setFontSize(9);
-        doc.text(`Total: ${this.totalizadores.total_itens} itens | Disponiveis: ${this.totalizadores.total_produtos_disponiveis} | Indisponiveis: ${this.totalizadores.total_produtos_indisponiveis} | Abaixo minimo: ${this.totalizadores.total_abaixo_minimo}`, 14, 34);
-      }
-      
-      // Preparar dados da tabela
       const tableData = [];
       for (const item of this.estoque) {
         if (item.lotes_info?.lotes && item.lotes_info.lotes.length > 0) {
@@ -717,44 +715,45 @@ export default {
           ]);
         }
       }
-      
-      // Gerar tabela
-      autoTable(doc, {
-        startY: this.totalizadores.total_itens > 0 ? 38 : 32,
+
+      const setorLinha = this.setorSelecionadoPolo
+        ? `${this.setorSelecionadoNome} - ${this.setorSelecionadoPolo}`
+        : this.setorSelecionadoNome;
+
+      const subtitles = [
+        `Data: ${new Date().toLocaleDateString('pt-BR')}`,
+        `Setor: ${setorLinha}`,
+      ];
+
+      if (this.totalizadores.total_itens > 0) {
+        subtitles.push(
+          `Total: ${this.totalizadores.total_itens} itens | Disponiveis: ${this.totalizadores.total_produtos_disponiveis} | Indisponiveis: ${this.totalizadores.total_produtos_indisponiveis} | Abaixo minimo: ${this.totalizadores.total_abaixo_minimo}`
+        );
+      }
+
+      exportToPdf({
+        title: 'Relatorio de Estoque Atual',
+        subtitle: subtitles,
         head: [['Produto', 'Cód. SIMPAS', 'Setor/Polo', 'Qtd', 'Min', 'Status', 'Lote', 'Q.Lote', 'Venc.', 'Dias', 'St.Lote']],
         body: tableData,
-        theme: 'striped',
+        filename: `relatorio_estoque_${new Date().toISOString().slice(0, 10)}.pdf`,
+        orientation: 'landscape',
         headStyles: { fillColor: [25, 135, 84], fontSize: 7, fontStyle: 'bold' },
         bodyStyles: { fontSize: 6 },
         columnStyles: {
-          0: { cellWidth: 43 },  // Produto
-          1: { cellWidth: 22 },  // Cód. SIMPAS
-          2: { cellWidth: 45 },  // Setor/Polo
-          3: { cellWidth: 12 },  // Qtd
-          4: { cellWidth: 12 },  // Min
-          5: { cellWidth: 15 },  // Status
-          6: { cellWidth: 18 },  // Lote
-          7: { cellWidth: 15 },  // Q.Lote
-          8: { cellWidth: 18 },  // Venc.
-          9: { cellWidth: 12 },  // Dias
-          10: { cellWidth: 18 }  // St.Lote
+          0: { cellWidth: 43 },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 12 },
+          4: { cellWidth: 12 },
+          5: { cellWidth: 15 },
+          6: { cellWidth: 18 },
+          7: { cellWidth: 15 },
+          8: { cellWidth: 18 },
+          9: { cellWidth: 12 },
+          10: { cellWidth: 18 },
         },
-        margin: { left: 14, right: 14 },
-        didDrawPage: (data) => {
-          // Rodapé com número de página
-          const pageCount = doc.internal.getNumberOfPages();
-          doc.setFontSize(8);
-          doc.text(
-            `Pagina ${data.pageNumber} de ${pageCount}`,
-            doc.internal.pageSize.width / 2,
-            doc.internal.pageSize.height - 10,
-            { align: 'center' }
-          );
-        }
       });
-      
-      // Salvar PDF
-      doc.save(`relatorio_estoque_${new Date().toISOString().slice(0,10)}.pdf`);
     }
   }
 }

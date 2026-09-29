@@ -171,9 +171,7 @@ import TemplateAdmin from '@/views/roleAdmin/TemplateAdmin.vue'
 import functionsRelatorios from '@/functions/cad_relatorios.js'
 import functionsPolos from '@/functions/cad_unidades_polos.js'
 import functionsSetores from '@/functions/cad_setores.js'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils'
 
 export default {
   name: 'SaidasReport',
@@ -199,10 +197,10 @@ export default {
   },
   computed: {
     polos() {
-      return this.$store.state.listPolos || [];
+      return this.$store.state.cadastros.listPolos || [];
     },
     setores() {
-      const setoresData = this.$store.state.listSetoresGerais;
+      const setoresData = this.$store.state.cadastros.listSetoresGerais;
       if (Array.isArray(setoresData)) return setoresData;
       if (setoresData?.data) return setoresData.data;
       return [];
@@ -387,49 +385,21 @@ export default {
       }
       
       // Criar workbook e worksheet
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Saídas');
-      
-      // Ajustar largura das colunas
-      const colWidths = [
-        { wch: 8 },  // ID
-        { wch: 16 }, // Data
-        { wch: 22 }, // Tipo
-        { wch: 25 }, // Setor Origem
-        { wch: 25 }, // Polo Origem
-        { wch: 25 }, // Setor Destino
-        { wch: 25 }, // Polo Destino
-        { wch: 12 }, // Status
-        { wch: 10 }, // Qtd.Sol.
-        { wch: 10 }, // Qtd.Lib.
-        { wch: 30 }, // Produto
-        { wch: 18 }, // Cód. SIMPAS
-        { wch: 15 }, // Cód.Barras
-        { wch: 15 }, // Lote
-        { wch: 12 }, // Fabricação
-        { wch: 12 }  // Vencimento
-      ];
-      ws['!cols'] = colWidths;
-      
-      // Baixar arquivo
-      XLSX.writeFile(wb, `relatorio_saidas_${new Date().toISOString().slice(0,10)}.xlsx`);
+      exportToExcel({
+        data,
+        columns: [
+          { wch: 8 }, { wch: 16 }, { wch: 22 }, { wch: 25 },
+          { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 12 },
+          { wch: 10 }, { wch: 10 }, { wch: 30 }, { wch: 18 },
+          { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }
+        ],
+        filename: `relatorio_saidas_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: 'Saídas',
+      });
     },
     exportPdf() {
-      if (!this.exits || this.exits.length===0) return;
-      
-      // Criar documento PDF em paisagem (landscape)
-      const doc = new jsPDF('landscape', 'mm', 'a4');
-      
-      // Cabeçalho
-      doc.setFontSize(16);
-      doc.text('Relatorio de Saidas', 14, 15);
-      
-      doc.setFontSize(10);
-      const periodo = `Periodo: ${this.formatDate(this.filters.date_from) || 'Todos'} ate ${this.formatDate(this.filters.date_to) || 'Todos'}`;
-      doc.text(periodo, 14, 22);
-      
-      // Preparar dados da tabela
+      if (!this.exits || this.exits.length === 0) return;
+
       const tableData = [];
       for (const e of this.exits) {
         const tipoAbrev = e.tipo === 'T' ? 'Transf.' : 'Saída';
@@ -467,45 +437,33 @@ export default {
           ]);
         }
       }
-      
-      // Gerar tabela
-      autoTable(doc, {
-        startY: 28,
+
+      const periodo = `Periodo: ${this.formatDate(this.filters.date_from) || 'Todos'} ate ${this.formatDate(this.filters.date_to) || 'Todos'}`;
+
+      exportToPdf({
+        title: 'Relatorio de Saidas',
+        subtitle: periodo,
         head: [['ID', 'Data', 'Tipo', 'Setor Origem', 'Setor Destino', 'Status', 'Qtd.Sol', 'Qtd.Lib', 'Produto', 'Cód. SIMPAS', 'Lote', 'Venc.']],
         body: tableData,
-        theme: 'striped',
+        filename: `relatorio_saidas_${new Date().toISOString().slice(0, 10)}.pdf`,
+        orientation: 'landscape',
         headStyles: { fillColor: [13, 110, 253], fontSize: 8, fontStyle: 'bold' },
         bodyStyles: { fontSize: 7 },
         columnStyles: {
-          0: { cellWidth: 10 },  // ID
-          1: { cellWidth: 23 },  // Data
-          2: { cellWidth: 16 },  // Tipo
-          3: { cellWidth: 32 },  // Setor Origem
-          4: { cellWidth: 32 },  // Setor Destino
-          5: { cellWidth: 16 },  // Status
-          6: { cellWidth: 14 },  // Qtd.Sol
-          7: { cellWidth: 14 },  // Qtd.Lib
-          8: { cellWidth: 46 },  // Produto
-          9: { cellWidth: 23 },  // Cód. SIMPAS
-          10: { cellWidth: 20 }, // Lote
-          11: { cellWidth: 16 }  // Venc.
-        },
-        margin: { left: 14, right: 14 },
-        didDrawPage: (data) => {
-          // Rodapé com número de página
-          const pageCount = doc.internal.getNumberOfPages();
-          doc.setFontSize(8);
-          doc.text(
-            `Pagina ${data.pageNumber} de ${pageCount}`,
-            doc.internal.pageSize.width / 2,
-            doc.internal.pageSize.height - 10,
-            { align: 'center' }
-          );
+          0: { cellWidth: 10 },
+          1: { cellWidth: 23 },
+          2: { cellWidth: 16 },
+          3: { cellWidth: 32 },
+          4: { cellWidth: 32 },
+          5: { cellWidth: 16 },
+          6: { cellWidth: 14 },
+          7: { cellWidth: 14 },
+          8: { cellWidth: 46 },
+          9: { cellWidth: 23 },
+          10: { cellWidth: 20 },
+          11: { cellWidth: 16 }
         }
       });
-      
-      // Salvar PDF
-      doc.save(`relatorio_saidas_${new Date().toISOString().slice(0,10)}.pdf`);
     }
   }
 }

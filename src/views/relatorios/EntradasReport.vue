@@ -156,9 +156,7 @@ import TemplateAdmin from '@/views/roleAdmin/TemplateAdmin.vue'
 import functionsRelatorios from '@/functions/cad_relatorios.js'
 import functionsPolos from '@/functions/cad_unidades_polos.js'
 import functionsSetores from '@/functions/cad_setores.js'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils'
 
 export default {
   name: 'EntradasReport',
@@ -184,10 +182,10 @@ export default {
   },
   computed: {
     polos() {
-      return this.$store.state.listPolos || [];
+      return this.$store.state.cadastros.listPolos || [];
     },
     setores() {
-      const setoresData = this.$store.state.listSetoresGerais;
+      const setoresData = this.$store.state.cadastros.listSetoresGerais;
       if (Array.isArray(setoresData)) {
         return setoresData;
       } else if (setoresData?.data && Array.isArray(setoresData.data)) {
@@ -326,46 +324,20 @@ export default {
         }
       }
       
-      // Criar workbook e worksheet
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Entradas');
-      
-      // Ajustar largura das colunas
-      const colWidths = [
-        { wch: 8 },  // ID
-        { wch: 12 }, // Data
-        { wch: 18 }, // Nota Fiscal
-        { wch: 35 }, // Fornecedor
-        { wch: 20 }, // Setor
-        { wch: 8 },  // Qtd
-        { wch: 30 }, // Produto
-        { wch: 15 }, // Cód.simpas
-        { wch: 15 }, // Cód.Barras
-        { wch: 15 }, // Lote
-        { wch: 12 }, // Fabricação
-        { wch: 12 }  // Vencimento
-      ];
-      ws['!cols'] = colWidths;
-      
-      // Baixar arquivo
-      XLSX.writeFile(wb, `relatorio_entradas_${new Date().toISOString().slice(0,10)}.xlsx`);
+      exportToExcel({
+        data,
+        columns: [
+          { wch: 8 }, { wch: 12 }, { wch: 18 }, { wch: 35 },
+          { wch: 20 }, { wch: 8 }, { wch: 30 }, { wch: 15 },
+          { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }
+        ],
+        filename: `relatorio_entradas_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: 'Entradas',
+      });
     },
     exportPdf() {
-      if (!this.entries || this.entries.length===0) return;
-      
-      // Criar documento PDF em paisagem (landscape)
-      const doc = new jsPDF('landscape', 'mm', 'a4');
-      
-      // Cabeçalho
-      doc.setFontSize(16);
-      doc.text('Relatorio de Entradas', 14, 15);
-      
-      doc.setFontSize(10);
-      const periodo = `Periodo: ${this.formatDate(this.filters.date_from) || 'Todos'} ate ${this.formatDate(this.filters.date_to) || 'Todos'}`;
-      doc.text(periodo, 14, 22);
-      
-      // Preparar dados da tabela
+      if (!this.entries || this.entries.length === 0) return;
+
       const tableData = [];
       for (const e of this.entries) {
         if (e.itens && e.itens.length > 0) {
@@ -402,13 +374,16 @@ export default {
           ]);
         }
       }
-      
-      // Gerar tabela
-      autoTable(doc, {
-        startY: 28,
+
+      const periodo = `Periodo: ${this.formatDate(this.filters.date_from) || 'Todos'} ate ${this.formatDate(this.filters.date_to) || 'Todos'}`;
+
+      exportToPdf({
+        title: 'Relatorio de Entradas',
+        subtitle: periodo,
         head: [['ID', 'Data', 'NF', 'Fornecedor', 'Setor', 'Qtd', 'Produto', 'Cod. SIMPAS', 'Cod.Barras', 'Lote', 'Fabric.', 'Venc.']],
         body: tableData,
-        theme: 'striped',
+        filename: `relatorio_entradas_${new Date().toISOString().slice(0, 10)}.pdf`,
+        orientation: 'landscape',
         headStyles: { fillColor: [13, 110, 253], fontSize: 8, fontStyle: 'bold' },
         bodyStyles: { fontSize: 7 },
         columnStyles: {
@@ -424,23 +399,8 @@ export default {
           9: { cellWidth: 18 },
           10: { cellWidth: 16 },
           11: { cellWidth: 16 }
-        },
-        margin: { left: 14, right: 14 },
-        didDrawPage: (data) => {
-          // Rodapé com número de página
-          const pageCount = doc.internal.getNumberOfPages();
-          doc.setFontSize(8);
-          doc.text(
-            `Pagina ${data.pageNumber} de ${pageCount}`,
-            doc.internal.pageSize.width / 2,
-            doc.internal.pageSize.height - 10,
-            { align: 'center' }
-          );
         }
       });
-      
-      // Salvar PDF
-      doc.save(`relatorio_entradas_${new Date().toISOString().slice(0,10)}.pdf`);
     }
   }
 }

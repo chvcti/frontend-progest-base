@@ -13,7 +13,7 @@
             </div>
             <div>
               <button class="btn btn-outline-secondary me-2" @click="resetFilters">Limpar</button>
-              <button class="btn btn-primary" @click="loadSaidasPorData">Atualizar</button>
+              <button class="btn btn-primary" @click="loadSaidasPorData(true)">Atualizar</button>
             </div>
           </div>
 
@@ -22,11 +22,11 @@
               <div class="row g-2">
                 <div class="col-md-2">
                   <label class="form-label">Data início</label>
-                  <input type="date" v-model="filters.date_from" class="form-control" />
+                  <input type="date" v-model="filters.date_from" class="form-control" @change="currentPage = 1" />
                 </div>
                 <div class="col-md-2">
                   <label class="form-label">Data fim</label>
-                  <input type="date" v-model="filters.date_to" class="form-control" />
+                  <input type="date" v-model="filters.date_to" class="form-control" @change="currentPage = 1" />
                 </div>
                 <div class="col-md-2">
                   <label class="form-label">Polo</label>
@@ -37,7 +37,7 @@
                 </div>
                 <div class="col-md-2">
                   <label class="form-label">Setor</label>
-                  <select v-model.number="filters.setor_id" class="form-select">
+                  <select v-model.number="filters.setor_id" class="form-select" @change="currentPage = 1">
                     <option :value="''">Todos</option>
                     <option v-for="s in setoresFiltrados" :key="s.id" :value="s.id">{{ s.nome }}</option>
                   </select>
@@ -68,7 +68,7 @@
             <!-- Cards por dia -->
             <div v-else>
               <div class="mb-3">
-                <strong>Total de dias com movimentação: {{ saidasPorData.length }}</strong>
+                <strong>Total de dias com movimentação: {{ totalRecords }}</strong>
               </div>
 
               <div v-for="dia in saidasPorData" :key="dia.data" class="card mb-3 shadow-sm">
@@ -180,6 +180,23 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Paginação -->
+              <div v-if="lastPage > 1" class="d-flex justify-content-end mt-3">
+                <nav aria-label="Navegação de páginas">
+                  <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item" :class="{ disabled: currentPage === 1 }">
+                      <button class="page-link" @click="changePage(currentPage - 1)" :disabled="currentPage === 1">Anterior</button>
+                    </li>
+                    <li class="page-item disabled">
+                      <span class="page-link">Página {{ currentPage }} de {{ lastPage }}</span>
+                    </li>
+                    <li class="page-item" :class="{ disabled: currentPage === lastPage }">
+                      <button class="page-link" @click="changePage(currentPage + 1)" :disabled="currentPage === lastPage">Próximo</button>
+                    </li>
+                  </ul>
+                </nav>
+              </div>
             </div>
           </div>
         </div>
@@ -193,9 +210,7 @@ import TemplateAdmin from '@/views/roleAdmin/TemplateAdmin.vue'
 import functionsRelatorios from '@/functions/cad_relatorios.js'
 import functionsPolos from '@/functions/cad_unidades_polos.js'
 import functionsSetores from '@/functions/cad_setores.js'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils'
 
 export default {
   name: 'SaidasPorDataReport',
@@ -209,6 +224,9 @@ export default {
         setor_id: '',
       },
       saidasPorData: [],
+      currentPage: 1,
+      lastPage: 1,
+      totalRecords: 0,
       periodo: null,
       loading: false,
       expandedDias: {}, // Controla quais dias estão expandidos
@@ -222,10 +240,10 @@ export default {
   },
   computed: {
     polos() {
-      return this.$store.state.listPolos || [];
+      return this.$store.state.cadastros.listPolos || [];
     },
     setores() {
-      const setoresData = this.$store.state.listSetoresGerais;
+      const setoresData = this.$store.state.cadastros.listSetoresGerais;
       if (Array.isArray(setoresData)) return setoresData;
       if (setoresData?.data) return setoresData.data;
       return [];
@@ -238,6 +256,7 @@ export default {
   methods: {
     onPoloChange() {
       this.filters.setor_id = '';
+      this.currentPage = 1;
     },
     getTodayDate() {
       const hoje = new Date();
@@ -260,10 +279,13 @@ export default {
       const key = `${data}-${produtoId}`;
       return this.expandedProdutos[key] || false;
     },
-    async loadSaidasPorData() {
+    async loadSaidasPorData(resetPage = false) {
+      if (resetPage === true) {
+        this.currentPage = 1;
+      }
       this.loading = true;
       try {
-        const payloadFilters = {};
+        const payloadFilters = { page: this.currentPage };
         if (this.filters.date_from) payloadFilters.date_from = this.filters.date_from;
         if (this.filters.date_to) payloadFilters.date_to = this.filters.date_to;
         if (this.filters.polo_id) payloadFilters.polo_id = this.filters.polo_id;
@@ -271,7 +293,10 @@ export default {
 
         const result = await functionsRelatorios.listSaidasPorDataReport(this, payloadFilters);
         if (result && result.success) {
-          this.saidasPorData = result.data || [];
+          this.saidasPorData = result.data?.data || [];
+          this.currentPage = result.data?.current_page || 1;
+          this.lastPage = result.data?.last_page || 1;
+          this.totalRecords = result.data?.total || 0;
           this.periodo = result.periodo || null;
           
           // Expandir todos os dias por padrão
@@ -289,14 +314,26 @@ export default {
           });
         } else {
           this.saidasPorData = [];
+          this.currentPage = 1;
+          this.lastPage = 1;
+          this.totalRecords = 0;
           this.periodo = null;
         }
       } catch (e) {
         console.error('Erro ao carregar relatório de saídas por data:', e);
         this.saidasPorData = [];
+        this.currentPage = 1;
+        this.lastPage = 1;
+        this.totalRecords = 0;
         this.periodo = null;
       } finally {
         this.loading = false;
+      }
+    },
+    changePage(page) {
+      if (page >= 1 && page <= this.lastPage) {
+        this.currentPage = page;
+        this.loadSaidasPorData();
       }
     },
     resetFilters() {
@@ -305,6 +342,7 @@ export default {
       this.filters.date_to = hoje;
       this.filters.polo_id = '';
       this.filters.setor_id = '';
+      this.currentPage = 1;
       this.loadSaidasPorData();
     },
     formatDate(d) {
@@ -393,51 +431,20 @@ export default {
         }
       }
       
-      // Criar workbook e worksheet
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Saídas por Data');
-      
-      // Ajustar largura das colunas
-      const colWidths = [
-        { wch: 12 }, // Data
-        { wch: 12 }, // Total Produtos Dia
-        { wch: 12 }, // Qtd Total Dia
-        { wch: 35 }, // Produto
-        { wch: 15 }, // Cód.simpas
-        { wch: 15 }, // Cód.Barras
-        { wch: 12 }, // Unid.Medida
-        { wch: 20 }, // Grupo
-        { wch: 12 }, // Qtd Produto
-        { wch: 10 }, // ID Mov.
-        { wch: 10 }, // Qtd Mov.
-        { wch: 25 }, // Setor Origem
-        { wch: 25 }, // Setor Destino
-        { wch: 18 }, // Data/Hora
-        { wch: 30 }  // Observação
-      ];
-      ws['!cols'] = colWidths;
-      
-      // Baixar arquivo
-      XLSX.writeFile(wb, `relatorio_saidas_por_data_${new Date().toISOString().slice(0,10)}.xlsx`);
+      exportToExcel({
+        data,
+        columns: [
+          { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 35 }, { wch: 15 },
+          { wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 12 }, { wch: 10 },
+          { wch: 10 }, { wch: 25 }, { wch: 25 }, { wch: 18 }, { wch: 30 }
+        ],
+        filename: `relatorio_saidas_por_data_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: 'Saídas por Data',
+      });
     },
     exportPdf() {
       if (!this.saidasPorData || this.saidasPorData.length === 0) return;
-      
-      // Criar documento PDF em paisagem (landscape)
-      const doc = new jsPDF('landscape', 'mm', 'a4');
-      
-      // Cabeçalho
-      doc.setFontSize(16);
-      doc.text('Relatorio de Saidas por Data', 14, 15);
-      
-      doc.setFontSize(10);
-      if (this.periodo) {
-        const periodo = `Periodo: ${this.formatDate(this.periodo.data_inicial)} ate ${this.formatDate(this.periodo.data_final)}`;
-        doc.text(periodo, 14, 22);
-      }
-      
-      // Preparar dados da tabela - estrutura achatada
+
       const tableData = [];
       for (const dia of this.saidasPorData) {
         for (const produtoItem of dia.produtos || []) {
@@ -472,43 +479,31 @@ export default {
           }
         }
       }
-      
-      // Gerar tabela
-      autoTable(doc, {
-        startY: 28,
+
+      exportToPdf({
+        title: 'Relatorio de Saidas por Data',
+        subtitle: this.periodo
+          ? `Periodo: ${this.formatDate(this.periodo.data_inicial)} ate ${this.formatDate(this.periodo.data_final)}`
+          : null,
         head: [['Data', 'Qtd Dia', 'Produto', 'Cod. SIMPAS', 'Qtd Prod', 'ID Mov', 'Qtd', 'Origem', 'Destino', 'Data/Hora']],
         body: tableData,
-        theme: 'striped',
+        filename: `relatorio_saidas_por_data_${new Date().toISOString().slice(0, 10)}.pdf`,
+        orientation: 'landscape',
         headStyles: { fillColor: [13, 110, 253], fontSize: 8, fontStyle: 'bold' },
         bodyStyles: { fontSize: 7 },
         columnStyles: {
-          0: { cellWidth: 20 },  // Data
-          1: { cellWidth: 18 },  // Qtd Dia
-          2: { cellWidth: 50 },  // Produto
-          3: { cellWidth: 25 },  // Cod. SIMPAS
-          4: { cellWidth: 18 },  // Qtd Prod
-          5: { cellWidth: 15 },  // ID Mov
-          6: { cellWidth: 15 },  // Qtd
-          7: { cellWidth: 35 },  // Origem
-          8: { cellWidth: 35 },  // Destino
-          9: { cellWidth: 30 }   // Data/Hora
-        },
-        margin: { left: 14, right: 14 },
-        didDrawPage: (data) => {
-          // Rodapé com número de página
-          const pageCount = doc.internal.getNumberOfPages();
-          doc.setFontSize(8);
-          doc.text(
-            `Pagina ${data.pageNumber} de ${pageCount}`,
-            doc.internal.pageSize.width / 2,
-            doc.internal.pageSize.height - 10,
-            { align: 'center' }
-          );
+          0: { cellWidth: 20 },
+          1: { cellWidth: 18 },
+          2: { cellWidth: 50 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 18 },
+          5: { cellWidth: 15 },
+          6: { cellWidth: 15 },
+          7: { cellWidth: 35 },
+          8: { cellWidth: 35 },
+          9: { cellWidth: 30 }
         }
       });
-      
-      // Salvar PDF
-      doc.save(`relatorio_saidas_por_data_${new Date().toISOString().slice(0,10)}.pdf`);
     }
   }
 }

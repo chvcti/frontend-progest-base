@@ -385,7 +385,7 @@ export default {
      * Usuário logado (do Vuex)
      */
     usuarioLogado() {
-      return this.$store.state.user || null
+      return this.$store.state.auth.user || null
     },
 
     /**
@@ -393,7 +393,7 @@ export default {
      * É aqui que está o perfil real do usuário ('admin', 'almoxarife', 'solicitante').
      */
     listUsuariosSetor() {
-      return this.$store.state.listUsuariosSetor || []
+      return this.$store.state.estoque.listUsuariosSetor || []
     },
 
     /**
@@ -401,7 +401,7 @@ export default {
      * no setor atual, via lista listUsuariosSetor.
      */
     isAdmin() {
-      if (this.$store.getters.isSuperAdmin) return true;
+      if (this.$store.getters["auth/isSuperAdmin"]) return true;
 
       const user = this.usuarioLogado
       if (!user) return false

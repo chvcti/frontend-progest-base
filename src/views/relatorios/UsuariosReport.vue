@@ -176,9 +176,7 @@ import TemplateAdmin from '@/views/roleAdmin/TemplateAdmin.vue'
 import functionsRelatorios from '@/functions/cad_relatorios.js'
 import functionsSetores from '@/functions/cad_setores.js'
 import functionsregimeContratacao from '@/functions/cad_regime_contratacao.js'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils'
 
 export default {
   name: 'UsuariosReport',
@@ -208,13 +206,13 @@ export default {
   },
   computed: {
     setores() {
-      const setoresData = this.$store.state.listSetoresGerais;
+      const setoresData = this.$store.state.cadastros.listSetoresGerais;
       if (Array.isArray(setoresData)) return setoresData;
       if (setoresData?.data) return setoresData.data;
       return [];
     },
     RegimesContratacao() {
-      return this.$store.state.listRegimesContratacao || [];
+      return this.$store.state.cadastros.listRegimesContratacao || [];
     }
   },
   methods: {
@@ -353,47 +351,31 @@ export default {
         }
       }
       
-      // Criar workbook e worksheet
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Usuários');
-      
-      // Ajustar largura das colunas
-      const colWidths = [
-        { wch: 8 },   // ID
-        { wch: 30 },  // Nome
-        { wch: 35 },  // Email
-        { wch: 15 },  // CPF
-        { wch: 15 },  // Telefone
-        { wch: 14 },  // Data Nascimento
-        { wch: 15 },  // Contratação
-        { wch: 10 },  // Status
-        { wch: 25 },  // Setor
-        { wch: 25 },  // Polo
-        { wch: 15 }   // Perfil
-      ];
-      ws['!cols'] = colWidths;
-      
-      // Baixar arquivo
-      XLSX.writeFile(wb, `relatorio_usuarios_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      exportToExcel({
+        data,
+        columns: [
+          { wch: 8 },   // ID
+          { wch: 30 },  // Nome
+          { wch: 35 },  // Email
+          { wch: 15 },  // CPF
+          { wch: 15 },  // Telefone
+          { wch: 14 },  // Data Nascimento
+          { wch: 15 },  // Contratação
+          { wch: 10 },  // Status
+          { wch: 25 },  // Setor
+          { wch: 25 },  // Polo
+          { wch: 15 }   // Perfil
+        ],
+        filename: `relatorio_usuarios_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: 'Usuários'
+      });
     },
     exportPdf() {
       if (!this.usuarios || this.usuarios.length === 0) return;
       
-      // Criar documento PDF em paisagem
-      const doc = new jsPDF('landscape', 'mm', 'a4');
-      
-      // Cabeçalho
-      doc.setFontSize(16);
-      doc.text('Relatório de Usuários', 14, 15);
-      
-      doc.setFontSize(10);
       const filtros = [];
       if (this.filters.status) filtros.push(`Status: ${this.filters.status === 'A' ? 'Ativo' : 'Inativo'}`);
       if (this.filters.regime_contratacao_id) filtros.push(`Contratação: ${this.filters.regime_contratacao_id}`);
-      if (filtros.length > 0) {
-        doc.text(`Filtros: ${filtros.join(', ')}`, 14, 22);
-      }
       
       // Preparar dados da tabela
       const tableData = [];
@@ -425,12 +407,13 @@ export default {
         }
       }
       
-      // Gerar tabela
-      autoTable(doc, {
-        startY: filtros.length > 0 ? 28 : 22,
+      exportToPdf({
+        title: 'Relatório de Usuários',
+        subtitle: filtros.length > 0 ? `Filtros: ${filtros.join(', ')}` : '',
         head: [['ID', 'Nome', 'Email', 'CPF', 'Contratação', 'Status', 'Setor', 'Perfil']],
         body: tableData,
-        theme: 'striped',
+        filename: `relatorio_usuarios_${new Date().toISOString().slice(0, 10)}.pdf`,
+        orientation: 'landscape',
         headStyles: { fillColor: [13, 110, 253], fontSize: 8, fontStyle: 'bold' },
         bodyStyles: { fontSize: 7 },
         columnStyles: {
@@ -442,22 +425,8 @@ export default {
           5: { cellWidth: 18 },  // Status
           6: { cellWidth: 40 },  // Setor
           7: { cellWidth: 22 }   // Perfil
-        },
-        margin: { left: 14, right: 14 },
-        didDrawPage: (data) => {
-          const pageCount = doc.internal.getNumberOfPages();
-          doc.setFontSize(8);
-          doc.text(
-            `Página ${data.pageNumber} de ${pageCount}`,
-            doc.internal.pageSize.width / 2,
-            doc.internal.pageSize.height - 10,
-            { align: 'center' }
-          );
         }
       });
-      
-      // Salvar PDF
-      doc.save(`relatorio_usuarios_${new Date().toISOString().slice(0, 10)}.pdf`);
     }
   }
 }

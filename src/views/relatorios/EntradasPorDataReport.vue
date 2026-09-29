@@ -201,9 +201,7 @@ import TemplateAdmin from '@/views/roleAdmin/TemplateAdmin.vue'
 import functionsRelatorios from '@/functions/cad_relatorios.js'
 import functionsPolos from '@/functions/cad_unidades_polos.js'
 import functionsSetores from '@/functions/cad_setores.js'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils'
 
 export default {
   name: 'EntradasPorDataReport',
@@ -231,10 +229,10 @@ export default {
   },
   computed: {
     unidades() {
-      return this.$store.state.listPolos || [];
+      return this.$store.state.cadastros.listPolos || [];
     },
     setores() {
-      const setoresData = this.$store.state.listSetoresGerais;
+      const setoresData = this.$store.state.cadastros.listSetoresGerais;
       if (Array.isArray(setoresData)) return setoresData;
       if (setoresData?.data) return setoresData.data;
       return [];
@@ -407,53 +405,21 @@ export default {
         }
       }
       
-      // Criar workbook e worksheet
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Entradas por Data');
-      
-      // Ajustar largura das colunas
-      const colWidths = [
-        { wch: 12 }, // Data
-        { wch: 12 }, // Total Produtos Dia
-        { wch: 12 }, // Qtd Total Dia
-        { wch: 35 }, // Produto
-        { wch: 15 }, // Cód.simpas
-        { wch: 15 }, // Cód.Barras
-        { wch: 12 }, // Unid.Medida
-        { wch: 20 }, // Grupo
-        { wch: 12 }, // Qtd Produto
-        { wch: 10 }, // ID Entrada
-        { wch: 10 }, // Qtd Entrada
-        { wch: 15 }, // Nota Fiscal
-        { wch: 30 }, // Fornecedor
-        { wch: 15 }, // Lote
-        { wch: 12 }, // Fabricação
-        { wch: 12 }, // Vencimento
-        { wch: 18 }  // Data/Hora
-      ];
-      ws['!cols'] = colWidths;
-      
-      // Baixar arquivo
-      XLSX.writeFile(wb, `relatorio_entradas_por_data_${new Date().toISOString().slice(0,10)}.xlsx`);
+      exportToExcel({
+        data,
+        columns: [
+          { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 35 }, { wch: 15 },
+          { wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 12 }, { wch: 10 },
+          { wch: 10 }, { wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 12 },
+          { wch: 12 }, { wch: 18 }
+        ],
+        filename: `relatorio_entradas_por_data_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: 'Entradas por Data',
+      });
     },
     exportPdf() {
       if (!this.entradasPorData || this.entradasPorData.length === 0) return;
-      
-      // Criar documento PDF em paisagem (landscape)
-      const doc = new jsPDF('landscape', 'mm', 'a4');
-      
-      // Cabeçalho
-      doc.setFontSize(16);
-      doc.text('Relatorio de Entradas por Data', 14, 15);
-      
-      doc.setFontSize(10);
-      if (this.periodo) {
-        const periodo = `Periodo: ${this.formatDate(this.periodo.data_inicial)} ate ${this.formatDate(this.periodo.data_final)}`;
-        doc.text(periodo, 14, 22);
-      }
-      
-      // Preparar dados da tabela - estrutura achatada
+
       const tableData = [];
       for (const dia of this.entradasPorData) {
         for (const produtoItem of dia.produtos || []) {
@@ -488,43 +454,31 @@ export default {
           }
         }
       }
-      
-      // Gerar tabela
-      autoTable(doc, {
-        startY: 28,
+
+      exportToPdf({
+        title: 'Relatorio de Entradas por Data',
+        subtitle: this.periodo
+          ? `Periodo: ${this.formatDate(this.periodo.data_inicial)} ate ${this.formatDate(this.periodo.data_final)}`
+          : null,
         head: [['Data', 'Qtd Dia', 'Produto', 'Cod. SIMPAS', 'Qtd Prod', 'ID Ent', 'Qtd', 'NF', 'Fornecedor', 'Data/Hora']],
         body: tableData,
-        theme: 'striped',
+        filename: `relatorio_entradas_por_data_${new Date().toISOString().slice(0, 10)}.pdf`,
+        orientation: 'landscape',
         headStyles: { fillColor: [40, 167, 69], fontSize: 8, fontStyle: 'bold' },
         bodyStyles: { fontSize: 7 },
         columnStyles: {
-          0: { cellWidth: 20 },  // Data
-          1: { cellWidth: 18 },  // Qtd Dia
-          2: { cellWidth: 50 },  // Produto
-          3: { cellWidth: 25 },  // Cod. SIMPAS
-          4: { cellWidth: 18 },  // Qtd Prod
-          5: { cellWidth: 15 },  // ID Ent
-          6: { cellWidth: 15 },  // Qtd
-          7: { cellWidth: 20 },  // NF
-          8: { cellWidth: 40 },  // Fornecedor
-          9: { cellWidth: 30 }   // Data/Hora
-        },
-        margin: { left: 14, right: 14 },
-        didDrawPage: (data) => {
-          // Rodapé com número de página
-          const pageCount = doc.internal.getNumberOfPages();
-          doc.setFontSize(8);
-          doc.text(
-            `Pagina ${data.pageNumber} de ${pageCount}`,
-            doc.internal.pageSize.width / 2,
-            doc.internal.pageSize.height - 10,
-            { align: 'center' }
-          );
+          0: { cellWidth: 20 },
+          1: { cellWidth: 18 },
+          2: { cellWidth: 50 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 18 },
+          5: { cellWidth: 15 },
+          6: { cellWidth: 15 },
+          7: { cellWidth: 20 },
+          8: { cellWidth: 40 },
+          9: { cellWidth: 30 }
         }
       });
-      
-      // Salvar PDF
-      doc.save(`relatorio_entradas_por_data_${new Date().toISOString().slice(0,10)}.pdf`);
     }
   }
 }

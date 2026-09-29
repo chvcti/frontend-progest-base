@@ -312,9 +312,7 @@ import functionsRelatorios from '@/functions/cad_relatorios.js'
 import functionsPolos from '@/functions/cad_unidades_polos.js'
 import functionsSetores from '@/functions/cad_setores.js'
 import functionsGrupoProduto from '@/functions/cad_grupo_produto.js'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { exportToExcel, exportToPdf } from '@/utils/exportUtils'
 
 export default {
   name: 'MedicamentosControladosReport',
@@ -376,20 +374,20 @@ export default {
   computed: {
     /** Setor em que o usuário está logado (cookie/store) */
     setorAtualId() {
-      const id = this.$store.state.setorAtualId || this.$store.state.setorDetails?.id;
+      const id = this.$store.state.estoque.setorAtualId || this.$store.state.estoque.setorDetails?.id;
       return id ? Number(id) : '';
     },
     setorAtualDetalhes() {
-      return this.$store.state.setorDetails || null;
+      return this.$store.state.estoque.setorDetails || null;
     },
     listUsuariosSetor() {
-      return this.$store.state.listUsuariosSetor || [];
+      return this.$store.state.estoque.listUsuariosSetor || [];
     },
     /** Perfil 'admin' no setor atual (mesma lógica do Sidebar/Relatórios) */
     isAdmin() {
-      if (this.$store.getters.isSuperAdmin) return true;
+      if (this.$store.getters["auth/isSuperAdmin"]) return true;
 
-      const user = this.$store.state.user;
+      const user = this.$store.state.auth.user;
       if (!user) return false;
       return this.listUsuariosSetor.some((u) => {
         const uid = u.usuario_id || u.user_id || u.id || (u.usuario && u.usuario.id);
@@ -398,7 +396,7 @@ export default {
       });
     },
     isAdminPolo() {
-      return !!this.$store.state.user?.is_admin_polo;
+      return !!this.$store.state.auth.user?.is_admin_polo;
     },
     /** Somente admin (setor, polo ou super) filtra o estoque de outros setores */
     podeFiltrarSetor() {
@@ -421,7 +419,7 @@ export default {
       if (this.filtrandoSetorLogado) {
         return this.setorAtualDetalhes?.nome_exibicao
           || this.setorAtualDetalhes?.nome
-          || this.$store.state.setorAtualNome
+          || this.$store.state.estoque.setorAtualNome
           || 'Setor atual';
       }
       return 'Setor selecionado';
@@ -436,10 +434,10 @@ export default {
       return '';
     },
     polos() {
-      return this.$store.state.listPolos || [];
+      return this.$store.state.cadastros.listPolos || [];
     },
     setores() {
-      const setoresData = this.$store.state.listSetoresGerais;
+      const setoresData = this.$store.state.cadastros.listSetoresGerais;
       if (Array.isArray(setoresData)) return setoresData;
       if (setoresData?.data) return setoresData.data;
       return [];
@@ -454,7 +452,7 @@ export default {
           id: this.setorAtualId,
           nome: this.setorAtualDetalhes?.nome_exibicao
             || this.setorAtualDetalhes?.nome
-            || this.$store.state.setorAtualNome
+            || this.$store.state.estoque.setorAtualNome
             || 'Meu setor',
         }];
       }
@@ -463,7 +461,7 @@ export default {
     },
     /** Apenas grupos marcados como medicamentos controlados */
     gruposControlados() {
-      const grupos = this.$store.state.listGrupoProdutos || [];
+      const grupos = this.$store.state.cadastros.listGrupoProdutos || [];
       const lista = Array.isArray(grupos) ? grupos : (grupos.data || []);
       return lista.filter(g => !!g.controlado);
     },
@@ -652,55 +650,30 @@ export default {
         }
       }
 
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Controlados');
-
-      ws['!cols'] = [
-        { wch: 35 }, { wch: 18 }, { wch: 12 }, { wch: 22 }, { wch: 12 },
-        { wch: 35 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 },
-        { wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }
-      ];
-
-      XLSX.writeFile(wb, `relatorio_medicamentos_controlados_${new Date().toISOString().slice(0,10)}.xlsx`);
+      exportToExcel({
+        data,
+        columns: [
+          { wch: 35 }, { wch: 18 }, { wch: 12 }, { wch: 22 }, { wch: 12 },
+          { wch: 35 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 },
+          { wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }
+        ],
+        filename: `relatorio_medicamentos_controlados_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: 'Controlados',
+      });
     },
     exportPdf() {
       if (!this.itens || this.itens.length === 0) return;
 
-      const doc = new jsPDF('landscape', 'mm', 'a4');
-
-      // Cabeçalho Institucional Regulatório (Portaria SVS/MS 344/98)
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      doc.text('LIVRO / RELATORIO DE MEDICAMENTOS SUJEITOS A CONTROLE ESPECIAL', 14, 13);
-      doc.setFontSize(9);
-      doc.text('Portaria SVS/MS nº 344/98 — Escrituracao Farmaceutica e Controle de Estoque', 14, 18);
-
-      doc.setFont(undefined, 'normal');
       const razaoSocial = this.setorSelecionadoPolo || 'Unidade Hospitalar / Polo Central';
       const setorLinha = this.setorSelecionadoNome;
       const dataHoraEmissao = `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 
-      doc.text(`Razao Social / Unidade Hospitalar: ${razaoSocial}`, 14, 24);
-      doc.text(`Setor / Farmacia: ${setorLinha}`, 14, 29);
-      doc.text(`Data de Emissao: ${dataHoraEmissao}`, 200, 24);
-
-      if (this.periodo) {
-        doc.text(
-          `Periodo de Movimento: ${this.formatDate(this.periodo.date_from)} a ${this.formatDate(this.periodo.date_to)}`,
-          200,
-          29
-        );
-      }
-
-      doc.setFontSize(8);
-      doc.text(
-        `Itens: ${this.totalizadores.total_itens || 0} | Estoque: ${this.totalizadores.quantidade_total || 0} | `
-        + `Entradas: ${this.totalizadores.total_entradas_periodo || 0} | Saidas: ${this.totalizadores.total_saidas_periodo || 0} | `
-        + `Lotes vencidos: ${this.totalizadores.total_lotes_vencidos || 0}`,
-        14,
-        35
-      );
+      const subtitles = [
+        'Portaria SVS/MS nº 344/98 — Escrituracao Farmaceutica e Controle de Estoque',
+        `Razao Social: ${razaoSocial} | Emissao: ${dataHoraEmissao}`,
+        `Setor: ${setorLinha}` + (this.periodo ? ` | Periodo: ${this.formatDate(this.periodo.date_from)} a ${this.formatDate(this.periodo.date_to)}` : ''),
+        `Itens: ${this.totalizadores.total_itens || 0} | Estoque: ${this.totalizadores.quantidade_total || 0} | Entradas: ${this.totalizadores.total_entradas_periodo || 0} | Saidas: ${this.totalizadores.total_saidas_periodo || 0} | Lotes vencidos: ${this.totalizadores.total_lotes_vencidos || 0}`,
+      ];
 
       const tableData = [];
       for (const item of this.itens) {
@@ -730,58 +703,43 @@ export default {
         }
       }
 
-      autoTable(doc, {
-        startY: 38,
+      exportToPdf({
+        title: 'LIVRO / RELATORIO DE MEDICAMENTOS SUJEITOS A CONTROLE ESPECIAL',
+        subtitle: subtitles,
         head: [['Medicamento', 'Cód. SIMPAS', 'Lista', 'Setor/Polo', 'Qtd', 'Min', 'Ent.', 'Said.', 'Lote', 'Q.Lote', 'Venc.', 'St.Lote']],
         body: tableData,
-        theme: 'striped',
+        filename: `relatorio_medicamentos_controlados_${new Date().toISOString().slice(0, 10)}.pdf`,
+        orientation: 'landscape',
         headStyles: { fillColor: [180, 83, 9], fontSize: 7, fontStyle: 'bold' },
         bodyStyles: { fontSize: 6 },
         columnStyles: {
-          0: { cellWidth: 44 },  // Medicamento
-          1: { cellWidth: 23 },  // Cód. SIMPAS
-          2: { cellWidth: 12 },  // Lista
-          3: { cellWidth: 39 },  // Setor/Polo
-          4: { cellWidth: 12 },  // Qtd
-          5: { cellWidth: 12 },  // Min
-          6: { cellWidth: 13 },  // Ent.
-          7: { cellWidth: 13 },  // Said.
-          8: { cellWidth: 20 },  // Lote
-          9: { cellWidth: 14 },  // Q.Lote
-          10: { cellWidth: 18 }, // Venc.
-          11: { cellWidth: 18 }  // St.Lote
+          0: { cellWidth: 44 },
+          1: { cellWidth: 23 },
+          2: { cellWidth: 12 },
+          3: { cellWidth: 39 },
+          4: { cellWidth: 12 },
+          5: { cellWidth: 12 },
+          6: { cellWidth: 13 },
+          7: { cellWidth: 13 },
+          8: { cellWidth: 20 },
+          9: { cellWidth: 14 },
+          10: { cellWidth: 18 },
+          11: { cellWidth: 18 }
         },
-        margin: { left: 14, right: 14 },
-        didDrawPage: (data) => {
-          const pageCount = doc.internal.getNumberOfPages();
-          doc.setFontSize(8);
-          doc.text(
-            `Pagina ${data.pageNumber} de ${pageCount}`,
-            doc.internal.pageSize.width / 2,
-            doc.internal.pageSize.height - 6,
-            { align: 'center' }
-          );
+        afterTable: ({ doc, finalY }) => {
+          let yAssinatura = finalY + 14;
+          if (yAssinatura + 24 > doc.internal.pageSize.height - 12) {
+            doc.addPage();
+            yAssinatura = 30;
+          }
+          doc.setFontSize(9);
+          doc.setFont(undefined, 'normal');
+          doc.text('Farmacêutico(a) Responsável Técnico(a): ________________________________', 14, yAssinatura);
+          doc.text('CRF-BA: _______________', 190, yAssinatura);
+          doc.text(`Data de Emissão: ${dataHoraEmissao}`, 14, yAssinatura + 9);
+          doc.text('Assinatura / Carimbo: ________________________________', 190, yAssinatura + 9);
         }
       });
-
-      // Rodapé formal da Portaria 344/98 (Campos de Responsabilidade Técnica)
-      const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY : 150;
-      let yAssinatura = finalY + 14;
-
-      if (yAssinatura + 24 > doc.internal.pageSize.height - 12) {
-        doc.addPage();
-        yAssinatura = 30;
-      }
-
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'normal');
-      doc.text('Farmacêutico(a) Responsável Técnico(a): ________________________________', 14, yAssinatura);
-      doc.text('CRF-BA: _______________', 190, yAssinatura);
-
-      doc.text(`Data de Emissão: ${dataHoraEmissao}`, 14, yAssinatura + 9);
-      doc.text('Assinatura / Carimbo: ________________________________', 190, yAssinatura + 9);
-
-      doc.save(`relatorio_medicamentos_controlados_${new Date().toISOString().slice(0,10)}.pdf`);
     }
   }
 }
