@@ -126,7 +126,7 @@
         </router-link>
 
         <router-link
-          v-if="isCAF && (isAdminPerfil || isAdminUser)"
+          v-if="isCAF && !isSolicitante && (isAdminPerfil || isAlmoxarifePerfil || isSuperAdmin)"
           class="menu-item"
           to="/setor-atual?tab=entrada"
           title="Registrar Entrada"
@@ -147,7 +147,7 @@
         </router-link>
 
         <router-link
-          v-if="!isSolicitante && !isAlmoxarifePerfil && (isAdminUser || isAdminPerfil || isAdminPolo)"
+          v-if="!isSolicitante && !isAlmoxarifePerfil && (isSuperAdmin || isAdminPerfil || isAdminPolo)"
           class="menu-item"
           to="/setor-atual?tab=usuarios"
           title="Equipe"
@@ -158,7 +158,7 @@
         </router-link>
 
         <router-link
-          v-if="setoresConsumidores.length > 0 && !isSolicitante && !isAlmoxarifePerfil && (isAdminUser || isAdminPerfil || isAdminPolo)"
+          v-if="setoresConsumidores.length > 0 && !isSolicitante && !isAlmoxarifePerfil && (isSuperAdmin || isAdminPerfil || isAdminPolo)"
           class="menu-item"
           to="/setores-consumidores"
           title="Setores Consumidores"
@@ -169,7 +169,7 @@
 
         <!-- Submenu: Cadastros -->
         <!-- Visível apenas para administradores. Oculto para almoxarife e solicitante independente do setor. -->
-        <div v-if="!isAlmoxarifePerfil && !isSolicitante && (isAdminUser || isAdminPerfil || isAdminPolo)" class="submenu-section">
+        <div v-if="!isAlmoxarifePerfil && !isSolicitante && (isSuperAdmin || isAdminPerfil || isAdminPolo)" class="submenu-section">
           <button
             class="menu-item submenu-toggle"
             @click="toggleSubmenu"
@@ -188,9 +188,9 @@
           <!-- Submenu Items -->
           <transition name="submenu-transition">
             <div v-show="submenuOpen" class="submenu-items">
-              <!-- Produtos: apenas admin (super admin ou admin do setor) -->
+              <!-- Produtos: apenas super admin ou admin da CAF -->
               <router-link
-                v-if="isAdminUser || (isCAF && isAdminPerfil)"
+                v-if="isSuperAdmin || (isCAF && isAdminPerfil)"
                 class="submenu-item"
                 to="/produtos"
                 title="Produtos"
@@ -199,9 +199,9 @@
                 <span class="menu-text">Produtos</span>
               </router-link>
 
-              <!-- Fornecedores: apenas admin (super admin ou admin do setor) -->
+              <!-- Fornecedores: apenas super admin ou admin da CAF -->
               <router-link
-                v-if="isAdminUser || (isCAF && isAdminPerfil)"
+                v-if="isSuperAdmin || (isCAF && isAdminPerfil)"
                 class="submenu-item"
                 to="/fornecedores"
                 title="Fornecedores"
@@ -223,7 +223,7 @@
 
               <!-- Setores: super admin, admin da CAF ou admin polo -->
               <router-link
-                v-if="isAdminUser || (isCAF && isAdminPerfil) || isAdminPolo"
+                v-if="isSuperAdmin || (isCAF && isAdminPerfil) || isAdminPolo"
                 class="submenu-item"
                 to="/setores"
                 title="Setores"
@@ -232,9 +232,9 @@
                 <span class="menu-text">Setores</span>
               </router-link>
 
-              <!-- Grupos de Produtos: apenas admin (super admin ou admin do setor) -->
+              <!-- Grupos de Produtos: apenas super admin ou admin da CAF -->
               <router-link
-                v-if="isAdminUser || (isCAF && isAdminPerfil)"
+                v-if="isSuperAdmin || (isCAF && isAdminPerfil)"
                 class="submenu-item"
                 to="/grupoProduto"
                 title="Grupos de Produtos"
@@ -243,9 +243,9 @@
                 <span class="menu-text">Grupos de Produtos</span>
               </router-link>
 
-              <!-- Unidades de Medida: apenas admin (super admin ou admin do setor) -->
+              <!-- Unidades de Medida: apenas super admin ou admin da CAF -->
               <router-link
-                v-if="isAdminUser || (isCAF && isAdminPerfil)"
+                v-if="isSuperAdmin || (isCAF && isAdminPerfil)"
                 class="submenu-item"
                 to="/unidadesMedida"
                 title="Unidades de Medida"
@@ -256,7 +256,7 @@
 
               <!-- Usuários: super admin, admin da CAF, admin de qualquer setor ou admin polo -->
               <router-link
-                v-if="isAdminUser || isAdminPerfil || isAdminPolo"
+                v-if="isSuperAdmin || isAdminPerfil || isAdminPolo"
                 class="submenu-item"
                 to="/users"
                 title="Usuários"
@@ -267,21 +267,21 @@
             </div>
           </transition>
         </div>
-      </template>
 
-      <!-- Botão Relatórios: acessa modo relatórios -->
-      <div v-if="isAdminPerfil || isAlmoxarifePerfil || isAdminUser" class="submenu-section">
-        <button
-          class="menu-item"
-          @click="ativarModoRelatorios"
-          title="Relatórios"
-          :class="{ 'menu-item-relatorios-ativo': modoRelatorios }"
-        >
-          <span class="material-icons menu-icon">bar_chart</span>
-          <span class="menu-text">Relatórios</span>
-          <span class="material-icons" style="font-size: 16px; margin-left: auto;">arrow_forward_ios</span>
-        </button>
-      </div>
+        <!-- Botão Relatórios: acessa modo relatórios (exclusivo para quem tem permissão operacional/gerencial) -->
+        <div v-if="!isSolicitante && (isAdminPerfil || isAlmoxarifePerfil || isSuperAdmin)" class="submenu-section">
+          <button
+            class="menu-item"
+            @click="ativarModoRelatorios"
+            title="Relatórios"
+            :class="{ 'menu-item-relatorios-ativo': modoRelatorios }"
+          >
+            <span class="material-icons menu-icon">bar_chart</span>
+            <span class="menu-text">Relatórios</span>
+            <span class="material-icons" style="font-size: 16px; margin-left: auto;">arrow_forward_ios</span>
+          </button>
+        </div>
+      </template>
     </nav>
   </aside>
 
@@ -347,7 +347,7 @@
 
       <!-- Relatório de Usuários: somente para admin -->
       <router-link
-        v-if="isAdminPerfil || isAdminUser"
+        v-if="isAdminPerfil || isSuperAdmin"
         class="menu-item"
         to="/relatorios/usuarios"
         title="Usuários"
@@ -451,67 +451,56 @@ const setorTemEstoque = computed(() => {
 const getPerfilAtual = () => {
   const user = store.state.auth.user;
   if (!user) return '';
+
+  // 1. Tentar ler da lista de usuários do setor atual no store
   const list = store.state.estoque.listUsuariosSetor || [];
   const found = list.find((u) => {
     const userId = u.usuario_id || u.user_id || u.id || (u.usuario && u.usuario.id);
     return userId === user.id;
   });
-  return (
-    (found && (found.perfil || (found.pivot && found.pivot.perfil))) ||
-    (user.perfil) ||
-    ''
-  ).toString().toLowerCase();
+  if (found) {
+    const perfil = (found.perfil || (found.pivot && found.pivot.perfil) || '').toString().toLowerCase();
+    if (perfil) return perfil;
+  }
+
+  // 2. Tentar ler dos setores vinculados ao próprio usuário (user.setores)
+  const setorId = store.state.estoque.setorAtualId || store.state.estoque.setorDetails?.id;
+  if (setorId && Array.isArray(user.setores)) {
+    const setorVinculado = user.setores.find((s) => Number(s.id || s.setor_id) === Number(setorId));
+    if (setorVinculado) {
+      const perfil = (setorVinculado.pivot?.perfil || setorVinculado.perfil || '').toString().toLowerCase();
+      if (perfil) return perfil;
+    }
+  }
+
+  // 3. Fallback: checar roles/perfil direto no objeto user
+  if (user.roles && Array.isArray(user.roles)) {
+    if (user.roles.includes('solicitante')) return 'solicitante';
+    if (user.roles.includes('almoxarife')) return 'almoxarife';
+    if (user.roles.includes('admin')) return 'admin';
+  }
+
+  return (user.perfil || '').toString().toLowerCase();
 };
 
-/** Usuário possui perfil 'admin' no setor atual */
-const isAdminPerfil = computed(() => getPerfilAtual() === 'admin');
+/** Usuário possui perfil 'admin' no setor atual (ou é super admin) */
+const isAdminPerfil = computed(() => isSuperAdmin.value || getPerfilAtual() === 'admin');
 
 /** Verifica se o usuário tem a flag de Admin Polo */
-const isAdminPolo = computed(() => store.state.auth.user?.is_admin_polo || false);
+const isAdminPolo = computed(() => Boolean(store.state.auth.user?.is_admin_polo));
 
 /** Usuário possui perfil 'almoxarife' no setor atual */
 const isAlmoxarifePerfil = computed(() => {
-  if (store.getters["auth/isSuperAdmin"]) return false;
+  if (isSuperAdmin.value) return false;
   const perfil = getPerfilAtual();
   return perfil === 'almoxarife' || perfil.includes('almoxarife');
 });
 
 // Verificar se o usuário possui perfil 'solicitante' no setor atual
 const isSolicitante = computed(() => {
-  if (store.getters["auth/isSuperAdmin"]) return false;
-
-  const user = store.state.auth.user;
-  if (!user) return false;
-
-  try {
-    // tentar usar a lista carregada no store (listUsuariosSetor)
-    const list = store.state.estoque.listUsuariosSetor || [];
-    const found = list.find((u) => {
-      const userId =
-        u.usuario_id || u.user_id || u.id || (u.usuario && u.usuario.id);
-      const perfil = (u.perfil || (u.pivot && u.pivot.perfil) || "")
-        .toString()
-        .toLowerCase();
-      return (
-        userId === user.id &&
-        (perfil === "solicitante" || perfil.includes("solicitante"))
-      );
-    });
-
-    if (found) return true;
-  } catch (e) {
-    console.warn("Erro ao avaliar isSolicitante:", e);
-  }
-
-  // fallback: checar roles/perfil no objeto user
-  if (
-    (user.roles && user.roles.includes && user.roles.includes("solicitante")) ||
-    (user.perfil &&
-      user.perfil.toString().toLowerCase().includes("solicitante"))
-  )
-    return true;
-
-  return false;
+  if (isSuperAdmin.value) return false;
+  const perfil = getPerfilAtual();
+  return perfil === 'solicitante' || perfil.includes('solicitante');
 });
 
 // Obter o nome do setor atual

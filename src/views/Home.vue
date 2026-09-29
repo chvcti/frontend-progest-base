@@ -77,7 +77,18 @@ const isSolicitante = computed(() => {
     const perfil = (u.perfil || u.pivot?.perfil || "").toString().toLowerCase();
     return userId === user.value.id && perfil.includes("solicitante");
   });
-  return !!found;
+  if (found) return true;
+
+  const setorId = store.state.estoque.setorAtualId || store.state.estoque.setorDetails?.id;
+  if (setorId && Array.isArray(user.value.setores)) {
+    const vinculo = user.value.setores.find((s) => Number(s.id || s.setor_id) === Number(setorId));
+    if (vinculo) {
+      const perfil = (vinculo.pivot?.perfil || vinculo.perfil || "").toString().toLowerCase();
+      return perfil.includes("solicitante");
+    }
+  }
+
+  return (user.value.perfil || "").toString().toLowerCase().includes("solicitante");
 });
 
 const isAlmoxarife = computed(() => {
@@ -89,6 +100,16 @@ const isAlmoxarife = computed(() => {
     return userId === user.value.id && (perfil === "almoxarife" || perfil.includes("almoxarife"));
   });
   if (found) return true;
+
+  const setorId = store.state.estoque.setorAtualId || store.state.estoque.setorDetails?.id;
+  if (setorId && Array.isArray(user.value.setores)) {
+    const vinculo = user.value.setores.find((s) => Number(s.id || s.setor_id) === Number(setorId));
+    if (vinculo) {
+      const perfil = (vinculo.pivot?.perfil || vinculo.perfil || "").toString().toLowerCase();
+      return perfil === "almoxarife" || perfil.includes("almoxarife");
+    }
+  }
+
   const userObj = user.value || {};
   return (
     (userObj.roles && userObj.roles.includes && userObj.roles.includes("almoxarife")) ||

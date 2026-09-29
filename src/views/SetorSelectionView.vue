@@ -318,6 +318,7 @@ const carregarSetores = async () => {
                 .map((v) => Number(v.setor_id || v.id || v.setor?.id))
                 .filter(Boolean);
               vinculosIds = [...new Set([...vinculosIds, ...idsApi])];
+              store.commit("auth/setUser", { ...user, setores: resp.data.data });
             }
           } catch (e) {
             console.warn("Erro ao buscar vínculos de usuario_setor:", e);

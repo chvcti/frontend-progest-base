@@ -225,6 +225,22 @@ router.beforeEach(async (to, from, next) => {
   const checkIsSolicitante = async () => {
     const user = store.state.auth.user;
     if (!user) return false;
+    if (store.getters["auth/isSuperAdmin"] || user.is_super_admin) return false;
+
+    const setorId = setorCookie.getSectorId() || store.state.estoque.setorAtualId;
+
+    // 1. Tentar verificar via user.setores
+    if (setorId && Array.isArray(user.setores)) {
+      const vinculo = user.setores.find(
+        (s) => Number(s.id || s.setor_id) === Number(setorId)
+      );
+      if (vinculo) {
+        const perfil = (vinculo.pivot?.perfil || vinculo.perfil || "")
+          .toString()
+          .toLowerCase();
+        if (perfil) return perfil === "solicitante" || perfil.includes("solicitante");
+      }
+    }
 
     try {
       let list = store.state.estoque.listUsuariosSetor || [];
@@ -281,6 +297,22 @@ router.beforeEach(async (to, from, next) => {
   const checkIsAlmoxarife = async () => {
     const user = store.state.auth.user;
     if (!user) return false;
+    if (store.getters["auth/isSuperAdmin"] || user.is_super_admin) return false;
+
+    const setorId = setorCookie.getSectorId() || store.state.estoque.setorAtualId;
+
+    // 1. Tentar verificar via user.setores
+    if (setorId && Array.isArray(user.setores)) {
+      const vinculo = user.setores.find(
+        (s) => Number(s.id || s.setor_id) === Number(setorId)
+      );
+      if (vinculo) {
+        const perfil = (vinculo.pivot?.perfil || vinculo.perfil || "")
+          .toString()
+          .toLowerCase();
+        if (perfil) return perfil === "almoxarife" || perfil.includes("almoxarife");
+      }
+    }
 
     try {
       let list = store.state.estoque.listUsuariosSetor || [];
@@ -420,12 +452,9 @@ router.beforeEach(async (to, from, next) => {
 
   // Bloquear acesso a rotas de gerenciamento para solicitantes e almoxarifes
   if (isAuthenticated && hasSector) {
-    // Define se o usuário logado é o administrador global do sistema
+    // Define se o usuário logado é o administrador global do sistema (exclusivo Super Admin)
     const userObj = store.state.auth.user || JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
-    const isGlobalAdmin = userObj && (
-      Boolean(userObj.is_super_admin) ||
-      Boolean(userObj.is_admin)
-    );
+    const isGlobalAdmin = Boolean(userObj && userObj.is_super_admin);
 
     const isSolic = await checkIsSolicitante();
     const isAlmox = await checkIsAlmoxarife();
@@ -556,13 +585,28 @@ router.beforeEach(async (to, from, next) => {
           return userId === (user && user.id);
         });
 
-        const perfilAtual = (
+        const setorId = setorCookie.getSectorId() || store.state.estoque.setorAtualId;
+        let perfilAtual = (
           (perfilDoUsuario && (perfilDoUsuario.perfil || (perfilDoUsuario.pivot && perfilDoUsuario.pivot.perfil))) ||
-          (user && user.perfil) ||
           ""
         )
           .toString()
           .toLowerCase();
+
+        if (!perfilAtual && setorId && user && Array.isArray(user.setores)) {
+          const vinculo = user.setores.find(
+            (s) => Number(s.id || s.setor_id) === Number(setorId)
+          );
+          if (vinculo) {
+            perfilAtual = (vinculo.pivot?.perfil || vinculo.perfil || "")
+              .toString()
+              .toLowerCase();
+          }
+        }
+
+        if (!perfilAtual && user && user.perfil) {
+          perfilAtual = user.perfil.toString().toLowerCase();
+        }
 
         if (!to.meta.roles.includes(perfilAtual) && !isGlobalAdmin) {
           next("/setor-atual");

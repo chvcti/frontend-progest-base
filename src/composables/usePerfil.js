@@ -42,6 +42,16 @@ export function usePerfil() {
 
     if (found) return true
 
+    // Verificar nos setores vinculados ao próprio usuário (user.setores)
+    const setorId = store.state.estoque?.setorAtualId || store.state.estoque?.setorDetails?.id
+    if (setorId && Array.isArray(user.setores)) {
+      const vinculo = user.setores.find((s) => Number(s.id || s.setor_id) === Number(setorId))
+      if (vinculo) {
+        const perfil = (vinculo.pivot?.perfil || vinculo.perfil || '').toString().toLowerCase()
+        if (perfil === perfilAlvo) return true
+      }
+    }
+
     // Fallback: checar roles/perfil direto no objeto user (compatibilidade legada)
     if (
       (user.roles && user.roles.includes && user.roles.includes(perfilAlvo)) ||

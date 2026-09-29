@@ -84,7 +84,7 @@ provide("setorAtualContext", context);
 const isAdminUser = computed(() => {
   const user = store.state.auth.user;
   if (!user) return false;
-  if (user.is_super_admin || user.is_admin) return true;
+  if (store.getters["auth/isSuperAdmin"] || user.is_super_admin) return true;
 
   const list = usuariosItems.value || [];
   const found = list.find((u) => {
@@ -95,26 +95,50 @@ const isAdminUser = computed(() => {
       (perfil.includes("admin") || perfil.includes("gerente"))
     );
   });
-  return !!found || !!user.is_admin;
+  if (found) return true;
+
+  const setorId = setor.value?.id || store.state.estoque.setorAtualId;
+  if (setorId && Array.isArray(user.setores)) {
+    const vinculo = user.setores.find((s) => Number(s.id || s.setor_id) === Number(setorId));
+    if (vinculo) {
+      const perfil = (vinculo.pivot?.perfil || vinculo.perfil || "").toString().toLowerCase();
+      if (perfil.includes("admin") || perfil.includes("gerente")) return true;
+    }
+  }
+
+  return false;
 });
 
 const isSolicitante = computed(() => {
   if (store.getters["auth/isSuperAdmin"]) return false;
   const user = store.state.auth.user;
   if (!user) return false;
+
   const list = usuariosItems.value || [];
   const found = list.find((u) => {
     const userId = u.usuario_id || u.user_id || u.id || u.usuario?.id;
     const perfil = (u.perfil || u.pivot?.perfil || "").toString().toLowerCase();
     return userId === user.id && perfil.includes("solicitante");
   });
-  return !!found;
+  if (found) return true;
+
+  const setorId = setor.value?.id || store.state.estoque.setorAtualId;
+  if (setorId && Array.isArray(user.setores)) {
+    const vinculo = user.setores.find((s) => Number(s.id || s.setor_id) === Number(setorId));
+    if (vinculo) {
+      const perfil = (vinculo.pivot?.perfil || vinculo.perfil || "").toString().toLowerCase();
+      return perfil.includes("solicitante");
+    }
+  }
+
+  return (user.perfil || "").toString().toLowerCase().includes("solicitante");
 });
 
 const isAlmoxarife = computed(() => {
   if (store.getters["auth/isSuperAdmin"]) return false;
   const user = store.state.auth.user;
   if (!user) return false;
+
   const list = usuariosItems.value || [];
   const found = list.find((u) => {
     const userId = u.usuario_id || u.user_id || u.id || u.usuario?.id;
@@ -122,6 +146,16 @@ const isAlmoxarife = computed(() => {
     return userId === user.id && (perfil === "almoxarife" || perfil.includes("almoxarife"));
   });
   if (found) return true;
+
+  const setorId = setor.value?.id || store.state.estoque.setorAtualId;
+  if (setorId && Array.isArray(user.setores)) {
+    const vinculo = user.setores.find((s) => Number(s.id || s.setor_id) === Number(setorId));
+    if (vinculo) {
+      const perfil = (vinculo.pivot?.perfil || vinculo.perfil || "").toString().toLowerCase();
+      return perfil === "almoxarife" || perfil.includes("almoxarife");
+    }
+  }
+
   const userObj = user || {};
   return (
     (userObj.roles && userObj.roles.includes && userObj.roles.includes("almoxarife")) ||
