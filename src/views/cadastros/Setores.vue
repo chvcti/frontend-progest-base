@@ -53,13 +53,13 @@ const filtroEstoque = ref("ALL");
 const filtroPolo = ref("ALL");
 
 const polosList = computed(() => {
-  const list = store.state.listPolos;
+  const list = store.state.cadastros.listPolos;
   if (Array.isArray(list)) return list;
   return Array.isArray(list?.data) ? list.data : [];
 });
 
 const setoresFiltrados = computed(() => {
-  const storeList = store.state.listSetoresGerais || {};
+  const storeList = store.state.cadastros.listSetoresGerais || {};
   const arr = Array.isArray(storeList.data) ? storeList.data : [];
 
   return arr.filter((setor) => {

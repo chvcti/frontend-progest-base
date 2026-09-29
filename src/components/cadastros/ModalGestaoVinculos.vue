@@ -38,7 +38,7 @@ const novoPerfil = ref("solicitante");
 
 // Todos os setores disponíveis para vincular
 const todosSetores = computed(() => {
-  const list = store.state.listSetoresGerais;
+  const list = store.state.cadastros.listSetoresGerais;
   return Array.isArray(list?.data) ? list.data : Array.isArray(list) ? list : [];
 });
 
@@ -70,7 +70,7 @@ const carregarVinculos = async () => {
     const res = await proxy.$axios.post(
       "/usuarioSetor/listByUsuario",
       { usuario_id: props.usuario.id },
-      { headers: { Authorization: "Bearer " + store.getters.getUserToken } }
+      { headers: { Authorization: "Bearer " + store.getters["auth/getUserToken"] } }
     );
     vinculos.value = res.data?.data || [];
   } catch (e) {
@@ -143,11 +143,11 @@ const getPerfilConfig = (perfil) =>
   perfilConfig[perfil] || { label: perfil, color: "text-slate-600 border-slate-200 bg-slate-50" };
 
 const canGrantAdmin = computed(() => {
-  const u = store.state.user;
+  const u = store.state.auth.user;
   if (!u) return false;
-  if (u.is_super_admin || store.getters.isSuperAdmin) return true;
+  if (u.is_super_admin || store.getters["auth/isSuperAdmin"]) return true;
   if (u.is_admin_caf) return true;
-  const setores = store.state.setoresComAcesso || u.setores || [];
+  const setores = store.state.estoque.setoresComAcesso || u.setores || [];
   return setores.some(
     (s) =>
       (s.id === 1 || (s.nome && s.nome.toUpperCase().includes("CAF"))) &&

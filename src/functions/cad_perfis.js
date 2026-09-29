@@ -6,7 +6,7 @@ var ADD_UP = (content, funcao) => {
   content.$axios
     .post(funcao == "ADD" ? "/perfil/add" : "/perfil/update", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
       },
     })
     .then(function (response) {
@@ -74,13 +74,13 @@ var listAll = (content, url = null) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       },
     )
     .then((response) => {
       if (response.data.status && response.data.data) {
-        content.$store.commit("setListPerfis", response.data.data);
+        content.$store.commit("cadastros/setListPerfis", response.data.data);
       }
       content.$store.commit("setisSearching", false);
     })
@@ -97,7 +97,7 @@ var listData = (content) => {
       { id: content.idData },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       },
     )
@@ -118,7 +118,7 @@ var deleteData = (content, id) => {
         {},
         {
           headers: {
-            Authorization: "Bearer " + content.$store.getters.getUserToken,
+            Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
           },
         },
       )

@@ -112,12 +112,12 @@ const carregarSetor = async () => {
       `/setores/listData`,
       { id: setorId },
       {
-        headers: { Authorization: "Bearer " + store.getters.getUserToken },
+        headers: { Authorization: "Bearer " + store.getters["auth/getUserToken"] },
       },
     );
 
     setor.value = response.data.data;
-    store.commit("setSetorDetails", setor.value);
+    store.commit("estoque/setSetorDetails", setor.value);
 
     await carregarDadosOperacionais();
 
@@ -144,7 +144,7 @@ const confirmarExclusaoSetor = async () => {
   try {
     // Lógica real de exclusão via API
     await axios.delete(`/setores/${setor.value.id}`, {
-      headers: { Authorization: "Bearer " + store.getters.getUserToken },
+      headers: { Authorization: "Bearer " + store.getters["auth/getUserToken"] },
     });
     router.push("/setores");
   } catch (e) {

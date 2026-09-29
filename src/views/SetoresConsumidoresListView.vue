@@ -98,7 +98,7 @@ const filteredSetores = computed(() => {
 const loadSetoresConsumidores = async () => {
   loading.value = true;
   loadingMessage.value = "Buscando setores...";
-  const setorDetails = store.state.setorDetails;
+  const setorDetails = store.state.estoque.setorDetails;
 
   if (!setorDetails || !setorDetails.id) {
     loading.value = false;
@@ -109,7 +109,7 @@ const loadSetoresConsumidores = async () => {
     const response = await axios.post(
       `/setores/listConsumers`,
       { id: setorDetails.id },
-      { headers: { Authorization: `Bearer ${store.getters.getUserToken}` } }
+      { headers: { Authorization: `Bearer ${store.getters["auth/getUserToken"]}` } }
     );
 
     if (response.data.status && response.data.data) {

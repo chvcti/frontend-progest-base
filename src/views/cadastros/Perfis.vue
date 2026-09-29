@@ -26,9 +26,9 @@ const columns = [
   { key: "status", label: "Status", align: "center" },
 ];
 
-const listPerfis = computed(() => store.state.listPerfis?.data || []);
+const listPerfis = computed(() => store.state.cadastros.listPerfis?.data || []);
 const pagination = computed(() => {
-  const list = store.state.listPerfis;
+  const list = store.state.cadastros.listPerfis;
   if (list && list.current_page) {
     return {
       current_page: list.current_page,

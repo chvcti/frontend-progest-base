@@ -396,7 +396,7 @@ const processarEnvio = async (statusTarget) => {
   // Se for devolução, ajusta tipo e inverte origem (solicitante) e destino (distribuidor)
   if (finalidade.value === "D") {
     pedidoData.tipo = "D";
-    pedidoData.setor_origem_id = Number(store.state.setorAtualId);
+    pedidoData.setor_origem_id = Number(store.state.estoque.setorAtualId);
     pedidoData.setor_destino_id = Number(distribuidorLocal.value);
   }
 

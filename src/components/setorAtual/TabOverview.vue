@@ -61,11 +61,11 @@ const selectedDistribuidorId = ref("");
 const loadingAdd = ref(false);
 
 const isAdminUser = computed(() => {
-  const user = store.state.user;
+  const user = store.state.auth.user;
   if (!user) return false;
   if (user.is_super_admin || user.is_admin) return true;
 
-  const list = store.state.listUsuariosSetor || [];
+  const list = store.state.estoque.listUsuariosSetor || [];
   const found = list.find((u) => {
     const userId = u.usuario_id || u.user_id || u.id || u.usuario?.id;
     const perfil = (u.perfil || u.pivot?.perfil || "").toString().toLowerCase();
@@ -78,9 +78,9 @@ const isAdminUser = computed(() => {
 });
 
 const isSolicitante = computed(() => {
-  const user = store.state.user;
+  const user = store.state.auth.user;
   if (!user) return false;
-  const list = store.state.listUsuariosSetor || [];
+  const list = store.state.estoque.listUsuariosSetor || [];
   const found = list.find((u) => {
     const userId = u.usuario_id || u.user_id || u.id || u.usuario?.id;
     const perfil = (u.perfil || u.pivot?.perfil || "").toString().toLowerCase();
@@ -155,7 +155,7 @@ const handleRemoveDistribuidor = async (relationId) => {
 
 const reloadSetorDetails = async () => {
   const result = await buscarSetorPorId(props.setor.id);
-  if (result.success) store.commit("setSetorDetails", result.data);
+  if (result.success) store.commit("estoque/setSetorDetails", result.data);
 };
 
 const formatarData = (date) => {

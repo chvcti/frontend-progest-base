@@ -56,17 +56,17 @@ const isModalOpen = computed({
 });
 
 const gruposProdutos = computed(() => {
-  const list = store.state.gruposProdutos || [];
+  const list = store.state.cadastros.gruposProdutos || [];
   return list.filter(g => g.status === 'A' || g.status === 'Ativo' || g.id == localData.value.grupo_produto_id);
 });
 const unidadesMedidaAux = computed(() => {
-  const list = store.state.unidadesMedidaAux || [];
+  const list = store.state.cadastros.unidadesMedidaAux || [];
   return list.filter(u => u.status === 'A' || u.status === 'Ativo' || u.id == localData.value.unidade_medida_id);
 });
 
 // Marcas exclusivas para sugestão no datalist
 const listaMarcasUnicas = computed(() => {
-  const prods = store.state.listProdutos;
+  const prods = store.state.cadastros.listProdutos;
   if (!prods) return [];
   const items = Array.isArray(prods) ? prods : (prods.data || []);
   const marcas = items.map(p => p.marca).filter(m => m && m.trim() !== "");
@@ -87,7 +87,7 @@ const selecionarMarca = (m) => {
 
 /** Grupo selecionado no formulário */
 const grupoSelecionado = computed(() => {
-  const list = store.state.gruposProdutos || [];
+  const list = store.state.cadastros.gruposProdutos || [];
   return (
     list.find((g) => g.id?.toString() === localData.value.grupo_produto_id?.toString()) ||
     null
@@ -146,7 +146,7 @@ const carregarDadosAuxiliares = () => {
     .then((r) => {
       if (r.data?.status) {
         const data = r.data.data.data || r.data.data;
-        store.commit("setGruposProdutos", Array.isArray(data) ? data : []);
+        store.commit("cadastros/setGruposProdutos", Array.isArray(data) ? data : []);
       }
     });
 
@@ -155,7 +155,7 @@ const carregarDadosAuxiliares = () => {
     .then((r) => {
       if (r.data?.status) {
         const data = r.data.data.data || r.data.data;
-        store.commit("setUnidadesMedidaAux", Array.isArray(data) ? data : []);
+        store.commit("cadastros/setUnidadesMedidaAux", Array.isArray(data) ? data : []);
       }
     });
 };
@@ -175,8 +175,8 @@ const salvarGrupoInline = () => {
   };
   proxy.$axios.post("/grupoProduto/add", payload).then((r) => {
     if (r.data?.status) {
-      const gList = store.state.gruposProdutos || [];
-      store.commit("setGruposProdutos", [...gList, r.data.data]);
+      const gList = store.state.cadastros.gruposProdutos || [];
+      store.commit("cadastros/setGruposProdutos", [...gList, r.data.data]);
       localData.value.grupo_produto_id = r.data.data.id.toString();
       showGrupoForm.value = false;
       novoGrupo.value = { nome: "", tipo: "Material", controlado: false };
@@ -201,8 +201,8 @@ const salvarUnidadeInline = () => {
   };
   proxy.$axios.post("/unidadeMedida/add", payload).then((r) => {
     if (r.data?.status) {
-      const uList = store.state.unidadesMedidaAux || [];
-      store.commit("setUnidadesMedidaAux", [...uList, r.data.data]);
+      const uList = store.state.cadastros.unidadesMedidaAux || [];
+      store.commit("cadastros/setUnidadesMedidaAux", [...uList, r.data.data]);
       localData.value.unidade_medida_id = r.data.data.id.toString();
       showUnidadeForm.value = false;
       novaUnidade.value = { nome: "", quantidade_unidade_minima: 1 };

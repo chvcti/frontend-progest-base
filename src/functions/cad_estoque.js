@@ -13,7 +13,7 @@ var ADD_UP = (content, funcao) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -63,8 +63,8 @@ var listAll = (content, url = null) => {
       content.setorId ||
       content.setor?.id ||
       content.setor?.value?.id ||
-      content.$store.state.setorAtualId ||
-      content.$store.state.setorDetails?.id ||
+      content.$store.state.estoque.setorAtualId ||
+      content.$store.state.estoque.setorDetails?.id ||
       setorCookie.getSectorId() ||
       null;
 
@@ -82,7 +82,7 @@ var listAll = (content, url = null) => {
   return content.$axios
     .get(fetchUrl, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
       },
     })
     .then((response) => {
@@ -124,7 +124,7 @@ var listAll = (content, url = null) => {
         }
 
         // Commitar no store também
-        content.$store.commit("setListEstoque", estoqueItems);
+        content.$store.commit("estoque/setListEstoque", estoqueItems);
         console.log("✓ setListEstoque atualizado:", estoqueItems.length);
 
         content.$store.commit("setisSearching", false);
@@ -156,7 +156,7 @@ var listAll = (content, url = null) => {
           Object.assign(content, { setorEstoque: {} });
         }
 
-        content.$store.commit("setListEstoque", []);
+        content.$store.commit("estoque/setListEstoque", []);
         content.$store.commit("setisSearching", false);
 
         return { success: false, data: [] };
@@ -184,7 +184,7 @@ var listAll = (content, url = null) => {
         Object.assign(content, { setorEstoque: {} });
       }
 
-      content.$store.commit("setListEstoque", []);
+      content.$store.commit("estoque/setListEstoque", []);
       content.$store.commit("setisSearching", false);
 
       // Não dispara alert, apenas loga
@@ -201,7 +201,7 @@ var listData = (content) => {
       { id: content.idData },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -226,7 +226,7 @@ var listEstoqueUnidade = (content, unidadeId) => {
   return content.$axios
     .get(`/estoque/setor/${unidadeId}`, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
       },
     })
     .then((response) => {
@@ -396,7 +396,7 @@ var atualizarQuantidadeMinima = (content, estoqueId, quantidadeMinima) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -450,7 +450,7 @@ var atualizarStatusDisponibilidade = (content, estoqueId, status) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )

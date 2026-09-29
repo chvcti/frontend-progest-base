@@ -60,14 +60,14 @@ const sortDir = ref("asc");
 const filterTipoPessoa = ref("");
 
 const listFornecedores = computed(() => {
-  const data = store.state.listFornecedores;
+  const data = store.state.cadastros.listFornecedores;
   if (!data) return [];
   if (Array.isArray(data)) return data;
   return data.data && Array.isArray(data.data) ? data.data : [];
 });
 
 const pagination = computed(() => {
-  const list = store.state.listFornecedores;
+  const list = store.state.cadastros.listFornecedores;
   if (list && list.current_page) {
     return {
       current_page: list.current_page,

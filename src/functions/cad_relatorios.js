@@ -22,7 +22,7 @@ var listEntradasReport = (content, filters = {}) => {
   return content.$axios
     .post("/relatorios/entradas/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -38,7 +38,7 @@ var listEntradasReport = (content, filters = {}) => {
         console.log(`📊 Entradas encontradas: ${entradas.length} total`);
 
         // Commit no Vuex store
-        content.$store.commit("setRelatorioEntradas", entradas);
+        content.$store.commit("estoque/setRelatorioEntradas", entradas);
         
         return { 
           success: true, 
@@ -47,7 +47,7 @@ var listEntradasReport = (content, filters = {}) => {
         };
       } else {
         console.warn("⚠️ Resposta da API sem dados válidos:", response.data);
-        content.$store.commit("setRelatorioEntradas", []);
+        content.$store.commit("estoque/setRelatorioEntradas", []);
         return { success: false, data: [], error: response.data.message };
       }
     })
@@ -68,7 +68,7 @@ var listEntradasReport = (content, filters = {}) => {
         console.warn("Erro ao exibir notificação:", e);
       }
 
-      content.$store.commit("setRelatorioEntradas", []);
+      content.$store.commit("estoque/setRelatorioEntradas", []);
       return { success: false, data: [], error };
     });
 };
@@ -92,7 +92,7 @@ var listMovimentacoesReport = (content, filters = {}) => {
   return content.$axios
     .post("/relatorios/movimentacoes/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -108,7 +108,7 @@ var listMovimentacoesReport = (content, filters = {}) => {
         console.log(`📊 Movimentações encontradas: ${movimentacoes.length} total`);
 
         // Commit no Vuex store
-        content.$store.commit("setRelatorioMovimentacoes", movimentacoes);
+        content.$store.commit("estoque/setRelatorioMovimentacoes", movimentacoes);
         
         return { 
           success: true, 
@@ -117,7 +117,7 @@ var listMovimentacoesReport = (content, filters = {}) => {
         };
       } else {
         console.warn("⚠️ Resposta da API sem dados válidos:", response.data);
-        content.$store.commit("setRelatorioMovimentacoes", []);
+        content.$store.commit("estoque/setRelatorioMovimentacoes", []);
         return { success: false, data: [], error: response.data.message };
       }
     })
@@ -138,7 +138,7 @@ var listMovimentacoesReport = (content, filters = {}) => {
         console.warn("Erro ao exibir notificação:", e);
       }
 
-      content.$store.commit("setRelatorioMovimentacoes", []);
+      content.$store.commit("estoque/setRelatorioMovimentacoes", []);
       return { success: false, data: [], error };
     });
 };
@@ -162,7 +162,7 @@ var listSaidasReport = (content, filters = {}) => {
   return content.$axios
     .post("/relatorios/saidas/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -178,7 +178,7 @@ var listSaidasReport = (content, filters = {}) => {
         console.log(`📊 Saídas encontradas: ${saidas.length} total`);
 
         // Commit no Vuex store
-        content.$store.commit("setRelatorioSaidas", saidas);
+        content.$store.commit("estoque/setRelatorioSaidas", saidas);
         
         return { 
           success: true, 
@@ -187,7 +187,7 @@ var listSaidasReport = (content, filters = {}) => {
         };
       } else {
         console.warn("⚠️ Resposta da API sem dados válidos:", response.data);
-        content.$store.commit("setRelatorioSaidas", []);
+        content.$store.commit("estoque/setRelatorioSaidas", []);
         return { success: false, data: [], error: response.data.message };
       }
     })
@@ -208,7 +208,7 @@ var listSaidasReport = (content, filters = {}) => {
         console.warn("Erro ao exibir notificação:", e);
       }
 
-      content.$store.commit("setRelatorioSaidas", []);
+      content.$store.commit("estoque/setRelatorioSaidas", []);
       return { success: false, data: [], error };
     });
 };
@@ -228,7 +228,7 @@ var listSaidasPorDataReport = (content, filters = {}) => {
   return content.$axios
     .post("/relatorios/saidas-por-data/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -236,10 +236,10 @@ var listSaidasPorDataReport = (content, filters = {}) => {
       console.log("✅ Resposta da API - Relatório Saídas por Data:", response.data);
 
       if (response.data && response.data.status) {
-        // Resposta sem paginação: backend retorna array direto em data
-        const saidasPorData = Array.isArray(response.data.data)
-          ? response.data.data
-          : [];
+        const isPaginated = response.data.data && typeof response.data.data === 'object' && Array.isArray(response.data.data.data);
+        const saidasPorData = isPaginated
+          ? response.data.data.data
+          : (Array.isArray(response.data.data) ? response.data.data : []);
         const periodo = response.data.periodo || null;
 
         console.log(`📊 Dias com saídas encontrados: ${saidasPorData.length} total`);
@@ -249,17 +249,17 @@ var listSaidasPorDataReport = (content, filters = {}) => {
         }
 
         // Commit no Vuex store
-        content.$store.commit("setRelatorioSaidasPorData", saidasPorData);
+        content.$store.commit("estoque/setRelatorioSaidasPorData", saidasPorData);
         
         return { 
           success: true, 
-          data: saidasPorData,
+          data: response.data.data,
           periodo: periodo,
-          total: saidasPorData.length
+          total: isPaginated ? response.data.data.total : saidasPorData.length
         };
       } else {
         console.warn("⚠️ Resposta da API sem dados válidos:", response.data);
-        content.$store.commit("setRelatorioSaidasPorData", []);
+        content.$store.commit("estoque/setRelatorioSaidasPorData", []);
         return { success: false, data: [], error: response.data.message };
       }
     })
@@ -280,7 +280,7 @@ var listSaidasPorDataReport = (content, filters = {}) => {
         console.warn("Erro ao exibir notificação:", e);
       }
 
-      content.$store.commit("setRelatorioSaidasPorData", []);
+      content.$store.commit("estoque/setRelatorioSaidasPorData", []);
       return { success: false, data: [], error };
     });
 };
@@ -299,7 +299,7 @@ var listEntradasPorDataReport = (content, filters = {}) => {
   return content.$axios
     .post("/relatorios/entradas-por-data/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -320,7 +320,7 @@ var listEntradasPorDataReport = (content, filters = {}) => {
         }
 
         // Commit no Vuex store
-        content.$store.commit("setRelatorioEntradasPorData", entradasPorData);
+        content.$store.commit("estoque/setRelatorioEntradasPorData", entradasPorData);
         
         return { 
           success: true, 
@@ -330,7 +330,7 @@ var listEntradasPorDataReport = (content, filters = {}) => {
         };
       } else {
         console.warn("⚠️ Resposta da API sem dados válidos:", response.data);
-        content.$store.commit("setRelatorioEntradasPorData", []);
+        content.$store.commit("estoque/setRelatorioEntradasPorData", []);
         return { success: false, data: [], error: response.data.message };
       }
     })
@@ -351,7 +351,7 @@ var listEntradasPorDataReport = (content, filters = {}) => {
         console.warn("Erro ao exibir notificação:", e);
       }
 
-      content.$store.commit("setRelatorioEntradasPorData", []);
+      content.$store.commit("estoque/setRelatorioEntradasPorData", []);
       return { success: false, data: [], error };
     });
 };
@@ -371,7 +371,7 @@ var listEstoqueReport = (content, filters = {}) => {
   return content.$axios
     .post("/relatorios/estoque/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -379,14 +379,14 @@ var listEstoqueReport = (content, filters = {}) => {
       console.log("✅ Resposta da API - Relatório Estoque:", response.data);
 
       if (response.data && response.data.status) {
-        // Resposta sem paginação: backend retorna array direto em data
-        const estoque = Array.isArray(response.data.data)
-          ? response.data.data
-          : [];
+        const isPaginated = response.data.data && typeof response.data.data === 'object' && Array.isArray(response.data.data.data);
+        const estoque = isPaginated
+          ? response.data.data.data
+          : (Array.isArray(response.data.data) ? response.data.data : []);
 
         // Capturar totalizadores da resposta
         const totalizadores = response.data.totalizadores || {
-          total_itens: estoque.length,
+          total_itens: isPaginated ? (response.data.data.total || estoque.length) : estoque.length,
           total_produtos_disponiveis: 0,
           total_produtos_indisponiveis: 0,
           total_abaixo_minimo: 0
@@ -396,17 +396,17 @@ var listEstoqueReport = (content, filters = {}) => {
         console.log(`📈 Totalizadores:`, totalizadores);
 
         // Commit no Vuex store
-        content.$store.commit("setRelatorioEstoque", estoque);
+        content.$store.commit("estoque/setRelatorioEstoque", estoque);
         
         return { 
           success: true, 
-          data: estoque,
+          data: response.data.data,
           totalizadores: totalizadores,
-          total: estoque.length
+          total: isPaginated ? response.data.data.total : estoque.length
         };
       } else {
         console.warn("⚠️ Resposta da API sem dados válidos:", response.data);
-        content.$store.commit("setRelatorioEstoque", []);
+        content.$store.commit("estoque/setRelatorioEstoque", []);
         return { success: false, data: [], error: response.data.message };
       }
     })
@@ -427,7 +427,7 @@ var listEstoqueReport = (content, filters = {}) => {
         console.warn("Erro ao exibir notificação:", e);
       }
 
-      content.$store.commit("setRelatorioEstoque", []);
+      content.$store.commit("estoque/setRelatorioEstoque", []);
       return { success: false, data: [], error };
     });
 };
@@ -451,7 +451,7 @@ var listUsuariosReport = (content, filters = {}) => {
   return content.$axios
     .post("/relatorios/usuarios/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -467,7 +467,7 @@ var listUsuariosReport = (content, filters = {}) => {
         console.log(`📊 Usuários encontrados: ${usuarios.length} total`);
 
         // Commit no Vuex store (opcional)
-        content.$store.commit("setRelatorioUsuarios", usuarios);
+        content.$store.commit("estoque/setRelatorioUsuarios", usuarios);
         
         return { 
           success: true, 
@@ -477,7 +477,7 @@ var listUsuariosReport = (content, filters = {}) => {
         };
       } else {
         console.warn("⚠️ Resposta da API sem dados válidos:", response.data);
-        content.$store.commit("setRelatorioUsuarios", []);
+        content.$store.commit("estoque/setRelatorioUsuarios", []);
         return { success: false, data: [], error: response.data.message };
       }
     })
@@ -498,7 +498,7 @@ var listUsuariosReport = (content, filters = {}) => {
         console.warn("Erro ao exibir notificação:", e);
       }
 
-      content.$store.commit("setRelatorioUsuarios", []);
+      content.$store.commit("estoque/setRelatorioUsuarios", []);
       return { success: false, data: [], error };
     });
 };
@@ -521,7 +521,7 @@ var listMedicamentosControladosReport = (content, filters = {}) => {
   return content.$axios
     .post("/relatorios/medicamentos-controlados/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -546,7 +546,7 @@ var listMedicamentosControladosReport = (content, filters = {}) => {
 
         console.log(`💊 Medicamentos controlados encontrados: ${medicamentos.length}`);
 
-        content.$store.commit("setRelatorioMedicamentosControlados", medicamentos);
+        content.$store.commit("estoque/setRelatorioMedicamentosControlados", medicamentos);
 
         return {
           success: true,
@@ -558,7 +558,7 @@ var listMedicamentosControladosReport = (content, filters = {}) => {
       }
 
       console.warn("⚠️ Resposta da API sem dados válidos:", response.data);
-      content.$store.commit("setRelatorioMedicamentosControlados", []);
+      content.$store.commit("estoque/setRelatorioMedicamentosControlados", []);
       return { success: false, data: [], error: response.data.message };
     })
     .catch((error) => {
@@ -576,7 +576,7 @@ var listMedicamentosControladosReport = (content, filters = {}) => {
         console.warn("Erro ao exibir notificação:", e);
       }
 
-      content.$store.commit("setRelatorioMedicamentosControlados", []);
+      content.$store.commit("estoque/setRelatorioMedicamentosControlados", []);
       return { success: false, data: [], error };
     });
 };

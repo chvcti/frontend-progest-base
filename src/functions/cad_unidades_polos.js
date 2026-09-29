@@ -16,7 +16,7 @@ var ADD_UP = (content, funcao) => {
   content.$axios
     .post(funcao == "ADD" ? "/polo/add" : "/polo/update", unidadeData, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
       },
     })
     .then(function (response) {
@@ -67,7 +67,7 @@ var listAll = (content, url = null) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -82,23 +82,23 @@ var listAll = (content, url = null) => {
             status: u.status === "A" ? "Ativo" : "Inativo",
           }));
 
-          content.$store.commit("setListPolos", enriched);
-          content.$store.commit("setListPolos", enriched);
+          content.$store.commit("cadastros/setListPolos", enriched);
+          content.$store.commit("cadastros/setListPolos", enriched);
         } else {
-          content.$store.commit("setListPolos", []);
-          content.$store.commit("setListPolos", []);
+          content.$store.commit("cadastros/setListPolos", []);
+          content.$store.commit("cadastros/setListPolos", []);
         }
       } else {
-        content.$store.commit("setListPolos", []);
-        content.$store.commit("setListPolos", []);
+        content.$store.commit("cadastros/setListPolos", []);
+        content.$store.commit("cadastros/setListPolos", []);
       }
       content.$store.commit("setisSearching", false);
     })
     .catch((error) => {
       console.error("Erro ao listar unidades:", error);
       content.$store.commit("setisSearching", false);
-      content.$store.commit("setListPolos", []);
-      content.$store.commit("setListPolos", []);
+      content.$store.commit("cadastros/setListPolos", []);
+      content.$store.commit("cadastros/setListPolos", []);
     });
 };
 
@@ -109,7 +109,7 @@ var listData = (content) => {
       { id: content.idData },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -133,7 +133,7 @@ var deleteData = (content, id) => {
       { id: id },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )

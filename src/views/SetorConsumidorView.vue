@@ -74,10 +74,10 @@ const loading = ref(true);
 const activeTab = ref("overview");
 
 const isSolicitante = computed(() => {
-  if (store.getters.isSuperAdmin) return false;
-  const user = store.state.user;
+  if (store.getters["auth/isSuperAdmin"]) return false;
+  const user = store.state.auth.user;
   if (!user) return false;
-  const list = store.state.listUsuariosSetor || [];
+  const list = store.state.estoque.listUsuariosSetor || [];
   const found = list.find((u) => {
     const userId = u.usuario_id || u.user_id || u.id || u.usuario?.id;
     const perfil = (u.perfil || u.pivot?.perfil || "").toString().toLowerCase();
@@ -87,7 +87,7 @@ const isSolicitante = computed(() => {
 });
 
 const isSuperAdmin = computed(() => {
-  return store.getters.isSuperAdmin;
+  return store.getters["auth/isSuperAdmin"];
 });
 
 // Dados compartilhados via provide

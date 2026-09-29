@@ -99,11 +99,11 @@ const setorEstoque = computed(
   () => parentData.setorEstoque?.value || parentData.setorEstoque || {},
 );
 
-const user = computed(() => store.state.user || {});
+const user = computed(() => store.state.auth.user || {});
 const canViewFinanceiro = computed(() => {
   if (resumoEstoque.value?.pode_ver_valores === true) return true;
   const isSuper = Boolean(user.value.is_super_admin) || Boolean(user.value.is_admin);
-  const nomeSetor = (setorEstoque.value?.nome || store.state.setorDetails?.nome || "").toUpperCase();
+  const nomeSetor = (setorEstoque.value?.nome || store.state.estoque.setorDetails?.nome || "").toUpperCase();
   const isCAF = nomeSetor.includes("CAF") || nomeSetor.includes("CENTRAL DE ABASTECIMENTO");
   return isSuper && isCAF;
 });

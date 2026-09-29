@@ -34,14 +34,14 @@ const props = defineProps({
 });
 
 const store = useStore();
-const user = computed(() => store.state.user || {});
+const user = computed(() => store.state.auth.user || {});
 const isAdmin = computed(() => {
   const u = user.value;
   if (!u) return false;
   if (
     u.is_super_admin ||
     u.is_admin ||
-    store.getters.isSuperAdmin
+    store.getters["auth/isSuperAdmin"]
   ) {
     return true;
   }
@@ -49,7 +49,7 @@ const isAdmin = computed(() => {
     return true;
   }
 
-  const list = store.state.listUsuariosSetor || [];
+  const list = store.state.estoque.listUsuariosSetor || [];
   const found = list.find((item) => {
     const userId = item.usuario_id || item.user_id || item.id || item.usuario?.id;
     const perfil = (item.perfil || item.pivot?.perfil || "").toString().toLowerCase();
@@ -57,7 +57,7 @@ const isAdmin = computed(() => {
   });
   if (found) return true;
 
-  const setoresComAcesso = store.getters.getSetoresComAcesso || [];
+  const setoresComAcesso = store.getters["estoque/getSetoresComAcesso"] || [];
   return setoresComAcesso.some((s) => s.perfil === "admin");
 });
 const canAddEntrada = computed(() => isAdmin.value);
@@ -65,7 +65,7 @@ const parentData = inject("setorAtualData", {
   entradasItems: [],
 });
 
-const setorAtual = computed(() => store.state.setorDetails || {});
+const setorAtual = computed(() => store.state.estoque.setorDetails || {});
 const entradaSelecionada = ref(null);
 const dialogEntradaOpen = ref(false);
 const modalVisualizarEntrada = ref(null);

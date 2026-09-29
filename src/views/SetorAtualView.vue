@@ -82,7 +82,7 @@ provide("setorAtualContext", context);
 
 // Computeds de permissão
 const isAdminUser = computed(() => {
-  const user = store.state.user;
+  const user = store.state.auth.user;
   if (!user) return false;
   if (user.is_super_admin || user.is_admin) return true;
 
@@ -99,8 +99,8 @@ const isAdminUser = computed(() => {
 });
 
 const isSolicitante = computed(() => {
-  if (store.getters.isSuperAdmin) return false;
-  const user = store.state.user;
+  if (store.getters["auth/isSuperAdmin"]) return false;
+  const user = store.state.auth.user;
   if (!user) return false;
   const list = usuariosItems.value || [];
   const found = list.find((u) => {
@@ -112,8 +112,8 @@ const isSolicitante = computed(() => {
 });
 
 const isAlmoxarife = computed(() => {
-  if (store.getters.isSuperAdmin) return false;
-  const user = store.state.user;
+  if (store.getters["auth/isSuperAdmin"]) return false;
+  const user = store.state.auth.user;
   if (!user) return false;
   const list = usuariosItems.value || [];
   const found = list.find((u) => {
@@ -135,12 +135,8 @@ const isCAF = computed(() => {
 });
 
 // Sigilo de Estoque Seletivo:
-// Admins e Almoxarifes sempre visualizam;
-// Solicitantes só visualizam se o setor atual controlar estoque físico.
+// Setores sem estoque físico (estoque: false) não exibem a aba de Estoque local.
 const exibirAbaEstoque = computed(() => {
-  if (isAdminUser.value || isAlmoxarife.value || store.getters.isSuperAdmin || store.state.user?.is_super_admin) {
-    return true;
-  }
   return Boolean(setor.value?.estoque);
 });
 
@@ -250,17 +246,17 @@ const loadSetorDetails = async () => {
   usuariosItems.value = [];
 
   const currentId =
-    store.state.setorAtualId ||
+    store.state.estoque.setorAtualId ||
     setorCookie.getSectorId() ||
-    store.state.setorDetails?.id;
+    store.state.estoque.setorDetails?.id;
   
   if (currentId) {
     const result = await functionsSetor.buscarSetorPorId(currentId);
     if (result.success) {
-      store.commit("setSetorDetails", result.data);
+      store.commit("estoque/setSetorDetails", result.data);
       setor.value = result.data;
     } else {
-      setor.value = store.state.setorDetails || {};
+      setor.value = store.state.estoque.setorDetails || {};
     }
     await carregarDadosOperacionais();
   }

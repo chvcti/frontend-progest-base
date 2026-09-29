@@ -15,7 +15,7 @@ import { setorCookie } from "@/utils/setorCookie";
  */
 export async function initSetorContext({ axios, store }) {
   try {
-    const token = store.getters.getUserToken;
+    const token = store.getters["auth/getUserToken"];
     const hasSector = setorCookie.hasSector();
     if (!token || !hasSector) return;
 
@@ -23,7 +23,7 @@ export async function initSetorContext({ axios, store }) {
     if (!setorId) return;
 
     // Se setorDetails já foi carregado e bate com o cookie, não recarrega detalhes
-    if (!store.state.setorDetails || store.state.setorDetails.id != setorId) {
+    if (!store.state.estoque.setorDetails || store.state.estoque.setorDetails.id != setorId) {
       try {
         await functionsSetor.getSetorDetail(
           { $axios: axios, $store: store },

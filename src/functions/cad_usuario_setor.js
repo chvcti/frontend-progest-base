@@ -7,8 +7,8 @@ var listAll = (content, setorId = null) => {
     setorId ||
     content.setorId ||
     content.setor?.id ||
-    content.$store.state.setorAtualId ||
-    content.$store.state.setorDetails?.id ||
+    content.$store.state.estoque.setorAtualId ||
+    content.$store.state.estoque.setorDetails?.id ||
     setorCookie.getSectorId();
 
   if (!idSetor) {
@@ -19,7 +19,7 @@ var listAll = (content, setorId = null) => {
   return content.$axios
     .post("/usuarioSetor/listBySetor", { setor_id: idSetor }, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -35,7 +35,7 @@ var listAll = (content, setorId = null) => {
         }
 
         // Atualizar store
-        content.$store.commit("setListUsuariosSetor", usuarios);
+        content.$store.commit("estoque/setListUsuariosSetor", usuarios);
         return { success: true, data: usuarios };
       }
       
@@ -57,7 +57,7 @@ var listBySetor = (content, setorId) => {
   return content.$axios
     .post("/usuarioSetor/listBySetor", { setor_id: setorId }, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -75,7 +75,7 @@ var create = (content, payload) => {
   return content.$axios
     .post("/usuarioSetor/create", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -87,7 +87,7 @@ var update = (content, payload) => {
   return content.$axios
     .post("/usuarioSetor/update", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -99,7 +99,7 @@ var remove = (content, payload) => {
   return content.$axios
     .post("/usuarioSetor/delete", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -111,7 +111,7 @@ var listAllUsers = (content) => {
   return content.$axios
     .post("/user/list", { filters: [] }, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })

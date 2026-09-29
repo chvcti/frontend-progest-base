@@ -16,7 +16,7 @@ var listAll = (content) => {
   return content.$axios
     .post("/regime-contratacao/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -38,12 +38,12 @@ var listAll = (content) => {
         console.log(`📊 Tipos de vínculo encontrados: ${RegimesContratacao.length}`);
 
         // Commit no Vuex store
-        content.$store.commit("setListRegimesContratacao", RegimesContratacao);
+        content.$store.commit("cadastros/setListRegimesContratacao", RegimesContratacao);
         
         return { success: true, data: RegimesContratacao };
       } else {
         console.warn("⚠️ Resposta da API sem dados válidos:", response.data);
-        content.$store.commit("setListRegimesContratacao", []);
+        content.$store.commit("cadastros/setListRegimesContratacao", []);
         return { success: false, data: [] };
       }
     })
@@ -64,7 +64,7 @@ var listAll = (content) => {
         console.warn("Erro ao exibir notificação:", e);
       }
 
-      content.$store.commit("setListRegimesContratacao", []);
+      content.$store.commit("cadastros/setListRegimesContratacao", []);
       return { success: false, data: [], error };
     });
 };

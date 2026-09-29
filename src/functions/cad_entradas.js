@@ -19,8 +19,8 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
     filters.setor_id ||
     content.setorId ||
     content.setor?.id ||
-    content.$store.state.setorAtualId ||
-    content.$store.state.setorDetails?.id ||
+    content.$store.state.estoque.setorAtualId ||
+    content.$store.state.estoque.setorDetails?.id ||
     setorCookie.getSectorId();
 
   const payload = {
@@ -41,7 +41,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
   return content.$axios
     .post("/entrada/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -67,7 +67,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
         }
 
         // Commit no Vuex store (só os items, não a paginação completa)
-        content.$store.commit("setListEntradas", entradas);
+        content.$store.commit("estoque/setListEntradas", entradas);
         return { success: true, data: entradas };
       } else {
         console.warn("⚠️ Resposta da API sem dados válidos:", response.data);
@@ -76,7 +76,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
         } else if (content.entradasItems !== undefined) {
           Object.assign(content, { entradasItems: [] });
         }
-        content.$store.commit("setListEntradas", []);
+        content.$store.commit("estoque/setListEntradas", []);
         return { success: false, data: [] };
       }
     })
@@ -100,7 +100,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
         Object.assign(content, { entradasItems: [] });
       }
 
-      content.$store.commit("setListEntradas", []);
+      content.$store.commit("estoque/setListEntradas", []);
       return { success: false, data: [], error };
     });
 };
@@ -135,7 +135,7 @@ var listByUnidade = (content, unidadeId, perPage = 50, page = 1) => {
   return content.$axios
     .post("/entrada/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -173,7 +173,7 @@ var listByUnidade = (content, unidadeId, perPage = 50, page = 1) => {
         }
 
         // Commit no Vuex store
-        content.$store.commit("setListEntradas", entradas);
+        content.$store.commit("estoque/setListEntradas", entradas);
         return { success: true, data: entradas };
       } else {
         console.warn("Resposta da API sem dados válidos:", response.data);
@@ -185,7 +185,7 @@ var listByUnidade = (content, unidadeId, perPage = 50, page = 1) => {
           Object.assign(content, { entradasItems: [] });
         }
 
-        content.$store.commit("setListEntradas", []);
+        content.$store.commit("estoque/setListEntradas", []);
         return { success: false, data: [] };
       }
     })
@@ -213,7 +213,7 @@ var listByUnidade = (content, unidadeId, perPage = 50, page = 1) => {
         Object.assign(content, { entradasItems: [] });
       }
 
-      content.$store.commit("setListEntradas", []);
+      content.$store.commit("estoque/setListEntradas", []);
       return { success: false, data: [], error };
     });
 };
@@ -234,7 +234,7 @@ var listData = (content, entradaId) => {
   return content.$axios
     .get(`/entrada/${entradaId}`, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
       },
     })
     .then((response) => {

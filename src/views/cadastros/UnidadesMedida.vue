@@ -43,12 +43,12 @@ const sortBy = ref("nome");
 const sortDir = ref("asc");
 
 const listUnidadesMedida = computed(() => {
-  const data = store.state.listUnidadesMedida;
+  const data = store.state.cadastros.listUnidadesMedida;
   return data?.data || data || [];
 });
 
 const pagination = computed(() => {
-  const list = store.state.listUnidadesMedida;
+  const list = store.state.cadastros.listUnidadesMedida;
   if (list && list.current_page) {
     return {
       current_page: list.current_page,

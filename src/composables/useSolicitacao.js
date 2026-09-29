@@ -59,11 +59,11 @@ export function useSolicitacao() {
   );
 
   // Setor atual do usuário
-  const setorAtual = computed(() => store.state.setorDetails);
+  const setorAtual = computed(() => store.state.estoque.setorDetails);
 
   // Distribuidores disponíveis para o setor atual
   const distribuidoresDisponiveis = computed(() => {
-    const details = store.state.setorDetails;
+    const details = store.state.estoque.setorDetails;
     if (!details) return [];
 
     const relacionamentos = details.distribuidores_relacionados || [];
@@ -199,8 +199,8 @@ export function useSolicitacao() {
       return null;
     }
 
-    const userId = store.state.user?.id;
-    const setorDestinoId = store.state.setorAtualId;
+    const userId = store.state.auth.user?.id;
+    const setorDestinoId = store.state.estoque.setorAtualId;
 
     if (!userId || !setorDestinoId) {
       console.error("Dados do usuário ou setor não disponíveis");

@@ -101,9 +101,9 @@ axios.interceptors.response.use(
 
       feedback.warning("A sua sessão expirou. Por favor, faça login novamente.", "Sessão Expirada");
 
-      // Limpa dados de autenticação e redireciona para login
-      store.commit("clearUserToken");
-      store.commit("setUser", null);
+      // Força a limpeza do sessionStorage, despacha a ação de logout da store e redireciona para /login
+      sessionStorage.clear();
+      store.dispatch("logout");
       setorCookie.clearSector();
       router.push("/login");
 

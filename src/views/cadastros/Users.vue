@@ -67,12 +67,12 @@ const sortDir = ref("asc");
 const filterRegimeContratacao = ref("");
 
 const listUsers = computed(() => {
-  const usersData = store.state.listUsers;
+  const usersData = store.state.cadastros.listUsers;
   return usersData?.data || usersData || [];
 });
 
 const pagination = computed(() => {
-  const list = store.state.listUsers;
+  const list = store.state.cadastros.listUsers;
   if (list && list.current_page) {
     return {
       current_page: list.current_page,
@@ -84,7 +84,7 @@ const pagination = computed(() => {
   return null;
 });
 
-const listRegimesContratacao = computed(() => store.state.listRegimesContratacao || []);
+const listRegimesContratacao = computed(() => store.state.cadastros.listRegimesContratacao || []);
 
 const regimeContratacaoMap = computed(() => {
   const map = {};

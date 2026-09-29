@@ -66,7 +66,7 @@ const route = useRoute();
 const store = useStore();
 
 const setorAtual = computed(() => {
-  return store.state.setorAtualNome || "Carregando...";
+  return store.state.estoque.setorAtualNome || "Carregando...";
 });
 
 const pageTitle = computed(() => store.state.pageTitle);
@@ -92,11 +92,11 @@ const displayTitle = computed(() => {
 });
 
 const unidadeNomeAtual = computed(() => {
-  return store.state.setorAtualNome || "Carregando...";
+  return store.state.estoque.setorAtualNome || "Carregando...";
 });
 
 const setorDetalhes = computed(() => {
-  return store.state.setorDetails || null;
+  return store.state.estoque.setorDetails || null;
 });
 </script>
 

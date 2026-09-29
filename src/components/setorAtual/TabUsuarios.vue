@@ -63,7 +63,7 @@ const handleDesvincular = async (usuarioId) => {
       "/usuarioSetor/delete",
       { usuario_id: usuarioId, setor_id: props.setorId },
       {
-        headers: { Authorization: "Bearer " + store.getters.getUserToken },
+        headers: { Authorization: "Bearer " + store.getters["auth/getUserToken"] },
       }
     );
     toast({ title: "Sucesso", description: "Usuário removido da unidade." });

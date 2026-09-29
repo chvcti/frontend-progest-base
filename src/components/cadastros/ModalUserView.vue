@@ -27,7 +27,7 @@ const props = defineProps({
 const emit = defineEmits(["update:open"]);
 const store = useStore();
 
-const listRegimesContratacao = computed(() => store.state.listRegimesContratacao || []);
+const listRegimesContratacao = computed(() => store.state.cadastros.listRegimesContratacao || []);
 
 const regimeContratacaoNome = computed(() => {
   if (!props.user?.regime_contratacao_id) return "N/A";

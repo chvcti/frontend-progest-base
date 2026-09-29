@@ -103,8 +103,8 @@ const login = async () => {
     });
 
     if (response.data && response.data.token && response.data.user) {
-      store.commit("setUserToken", response.data.token);
-      store.commit("setUser", response.data.user);
+      store.commit("auth/setUserToken", response.data.token);
+      store.commit("auth/setUser", response.data.user);
       router.push("/setor-selection");
     } else {
       errorMessage.value = "Falha no login. Dados incompletos.";

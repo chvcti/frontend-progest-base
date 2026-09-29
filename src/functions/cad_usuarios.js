@@ -19,7 +19,7 @@ var ADD_UP = (content, funcao) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -76,7 +76,7 @@ var EDIT_PERFIL = (content, funcao) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -109,7 +109,7 @@ var listALL = (content, url = null) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -117,7 +117,7 @@ var listALL = (content, url = null) => {
       if (response.data.status && response.data.data) {
         // Substituir os valores dos usuários pelos nomes legíveis
         const enrichedUsers = response.data.data.map((user) => {
-          const RegimesContratacao = content.$store.state.listRegimesContratacao || [];
+          const RegimesContratacao = content.$store.state.cadastros.listRegimesContratacao || [];
           const regimeContratacao = RegimesContratacao.find(
             (tipo) => tipo.id == user.regime_contratacao_id
           );
@@ -133,10 +133,10 @@ var listALL = (content, url = null) => {
           };
         });
 
-        content.$store.commit("setListUsers", enrichedUsers);
+        content.$store.commit("cadastros/setListUsers", enrichedUsers);
       } else {
         console.error("Resposta da API sem dados válidos:", response.data);
-        content.$store.commit("setListUsers", []);
+        content.$store.commit("cadastros/setListUsers", []);
       }
 
       content.$store.commit("setisSearching", false);
@@ -144,7 +144,7 @@ var listALL = (content, url = null) => {
     .catch((error) => {
       console.error("Erro na chamada da API listALL:", error);
       content.$store.commit("setisSearching", false);
-      content.$store.commit("setListUsers", []);
+      content.$store.commit("cadastros/setListUsers", []);
     });
 };
 
@@ -157,7 +157,7 @@ var listData = (content) => {
       { id: content.idData },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -194,13 +194,13 @@ var listRegimesContratacao = (content, url = null) => {
       {},
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
     .then((response) => {
       const regimes = response.data?.data || [];
-      content.$store.commit("setListRegimesContratacao", regimes);
+      content.$store.commit("cadastros/setListRegimesContratacao", regimes);
       console.log("setListRegimesContratacao", regimes);
       return regimes;
     })
@@ -210,20 +210,20 @@ var listRegimesContratacao = (content, url = null) => {
         return content.$axios
           .post("/tipo-vinculo/list", {}, {
             headers: {
-              Authorization: "Bearer " + content.$store.getters.getUserToken,
+              Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
             },
           })
           .then((res) => {
             const regimes = res.data?.data || [];
-            content.$store.commit("setListRegimesContratacao", regimes);
+            content.$store.commit("cadastros/setListRegimesContratacao", regimes);
             return regimes;
           })
           .catch(() => {
-            content.$store.commit("setListRegimesContratacao", []);
+            content.$store.commit("cadastros/setListRegimesContratacao", []);
             return [];
           });
       }
-      content.$store.commit("setListRegimesContratacao", []);
+      content.$store.commit("cadastros/setListRegimesContratacao", []);
       return [];
     });
 };
@@ -235,18 +235,18 @@ var listPolos = (content, url = null) => {
       {},
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
     .then((response) => {
-      content.$store.commit("setListSetoresGerais", response.data.data);
+      content.$store.commit("cadastros/setListSetoresGerais", response.data.data);
       console.log("setListSetoresGerais", response.data.data);
       return response.data.data;
     })
     .catch((error) => {
       console.error("Erro ao carregar unidades:", error);
-      content.$store.commit("setListPolos", []);
+      content.$store.commit("cadastros/setListPolos", []);
       throw error;
     });
 };
@@ -259,7 +259,7 @@ var deleteData = (content, id) => {
       {},
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )

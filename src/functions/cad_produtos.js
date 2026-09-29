@@ -24,7 +24,7 @@ var ADD_UP = (content, funcao) => {
   content.$axios
     .post(funcao == "ADD" ? "/produtos/add" : "/produtos/update", produtoData, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
       },
     })
     .then(function (response) {
@@ -76,7 +76,7 @@ var listAll = (content, url = null) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -90,19 +90,19 @@ var listAll = (content, url = null) => {
             ...p,
             status: p.status === "A" ? "Ativo" : "Inativo",
           }));
-          content.$store.commit("setListProdutos", enriched);
+          content.$store.commit("cadastros/setListProdutos", enriched);
         } else {
-          content.$store.commit("setListProdutos", []);
+          content.$store.commit("cadastros/setListProdutos", []);
         }
       } else {
-        content.$store.commit("setListProdutos", []);
+        content.$store.commit("cadastros/setListProdutos", []);
       }
       content.$store.commit("setisSearching", false);
     })
     .catch((error) => {
       console.error("Erro ao listar produtos:", error);
       content.$store.commit("setisSearching", false);
-      content.$store.commit("setListProdutos", []);
+      content.$store.commit("cadastros/setListProdutos", []);
     });
 };
 
@@ -113,7 +113,7 @@ var listData = (content) => {
       { id: content.idData },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -141,7 +141,7 @@ var deleteData = (content, id) => {
       {},
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )

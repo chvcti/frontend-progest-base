@@ -9,7 +9,7 @@ var ADD_UP = (content, funcao) => {
       { fornecedor: content.modalData },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -77,7 +77,7 @@ var listAll = (content, url = null) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -91,12 +91,12 @@ var listAll = (content, url = null) => {
             ...f,
             status: f.status === "A" ? "Ativo" : "Inativo",
           }));
-          content.$store.commit("setListFornecedores", enriched);
+          content.$store.commit("cadastros/setListFornecedores", enriched);
         } else {
-          content.$store.commit("setListFornecedores", []);
+          content.$store.commit("cadastros/setListFornecedores", []);
         }
       } else {
-        content.$store.commit("setListFornecedores", []);
+        content.$store.commit("cadastros/setListFornecedores", []);
       }
 
       content.$store.commit("setisSearching", false);
@@ -104,7 +104,7 @@ var listAll = (content, url = null) => {
     .catch((error) => {
       console.error("Erro na chamada da API listAll:", error);
       content.$store.commit("setisSearching", false);
-      content.$store.commit("setListFornecedores", []);
+      content.$store.commit("cadastros/setListFornecedores", []);
     });
 };
 
@@ -115,7 +115,7 @@ var listData = (content) => {
       { id: content.idData },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -139,7 +139,7 @@ var deleteData = (content, id) => {
       {},
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )

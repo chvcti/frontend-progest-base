@@ -599,7 +599,7 @@ export default {
           { setor_id: this.setorId },
           {
             headers: {
-              Authorization: "Bearer " + this.$store.getters.getUserToken,
+              Authorization: "Bearer " + this.$store.getters["auth/getUserToken"],
               "Content-Type": "application/json",
             },
           },
@@ -631,7 +631,7 @@ export default {
           { tipo },
           {
             headers: {
-              Authorization: "Bearer " + this.$store.getters.getUserToken,
+              Authorization: "Bearer " + this.$store.getters["auth/getUserToken"],
               "Content-Type": "application/json",
             },
           },
@@ -731,7 +731,7 @@ export default {
         const response = await axios.post(
           `/movimentacao/${this.rascunho.id}/update-rascunho`,
           payload,
-          { headers: { Authorization: "Bearer " + this.$store.getters.getUserToken } }
+          { headers: { Authorization: "Bearer " + this.$store.getters["auth/getUserToken"] } }
         );
         if (response.data?.status) {
           this.$emit("registrado");
@@ -767,7 +767,7 @@ export default {
       try {
         const isDevolucao = this.tipoMovimentacao === "D";
         const payload = {
-          usuario_id: this.$store.state.user?.id,
+          usuario_id: this.$store.state.auth.user?.id,
           setor_origem_id: isDevolucao ? parseInt(this.setorId) : parseInt(this.form.setorOrigemId),
           setor_destino_id: isDevolucao ? parseInt(this.form.setorOrigemId) : parseInt(this.setorId),
           tipo: isDevolucao ? "D" : "T",
@@ -782,7 +782,7 @@ export default {
 
         const response = await axios.post("/movimentacao/add", payload, {
           headers: {
-            Authorization: "Bearer " + this.$store.getters.getUserToken,
+            Authorization: "Bearer " + this.$store.getters["auth/getUserToken"],
             "Content-Type": "application/json",
           },
         });

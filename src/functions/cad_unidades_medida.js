@@ -24,7 +24,7 @@ var ADD_UP = (content, funcao) => {
       unidadeMedidaData,
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -71,7 +71,7 @@ var listAll = (content, url = null) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -85,9 +85,9 @@ var listAll = (content, url = null) => {
           };
         });
 
-        content.$store.commit("SET_listUnidadesMedida", enrichedUnidades);
+        content.$store.commit("cadastros/SET_listUnidadesMedida", enrichedUnidades);
       } else {
-        content.$store.commit("SET_listUnidadesMedida", []);
+        content.$store.commit("cadastros/SET_listUnidadesMedida", []);
       }
 
       content.$store.commit("setisSearching", false);
@@ -95,7 +95,7 @@ var listAll = (content, url = null) => {
     .catch((error) => {
       console.error("Erro na chamada da API listAll:", error);
       content.$store.commit("setisSearching", false);
-      content.$store.commit("SET_listUnidadesMedida", []);
+      content.$store.commit("cadastros/SET_listUnidadesMedida", []);
     });
 };
 
@@ -106,7 +106,7 @@ var listData = (content) => {
       { id: content.idData },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -129,7 +129,7 @@ var deleteData = (content, id) => {
       {},
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )

@@ -53,15 +53,15 @@ const router = useRouter();
 const store = useStore();
 
 const userName = computed(() => {
-  return store.state.user?.name || "Usuário";
+  return store.state.auth.user?.name || "Usuário";
 });
 
 const userEmail = computed(() => {
-  return store.state.user?.email || "email@exemplo.com";
+  return store.state.auth.user?.email || "email@exemplo.com";
 });
 
 const userRoleLabel = computed(() => {
-  const role = store.state.user?.role || "user";
+  const role = store.state.auth.user?.role || "user";
   const roleMap = {
     A: "Administrador",
     S: "Solicitante",
@@ -76,8 +76,8 @@ const exitSetor = () => {
   setorCookie.clearSector();
 
   // Limpar dados do setor no Vuex
-  store.commit("clearSetorAtual");
-  store.commit("clearSetorDetails");
+  store.commit("estoque/clearSetorAtual");
+  store.commit("estoque/clearSetorDetails");
 
   // Redirecionar para seleção de setor
   router.push("/setor-selection");
@@ -85,12 +85,12 @@ const exitSetor = () => {
 
 const logout = () => {
   // Remover autenticação
-  store.commit("clearUserToken");
-  store.commit("setUser", null);
+  store.commit("auth/clearUserToken");
+  store.commit("auth/setUser", null);
 
   // Limpar dados do setor
-  store.commit("clearSetorAtual");
-  store.commit("clearSetorDetails");
+  store.commit("estoque/clearSetorAtual");
+  store.commit("estoque/clearSetorDetails");
 
   // Limpar cookies do setor
   setorCookie.clearSector();

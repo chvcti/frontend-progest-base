@@ -18,7 +18,7 @@ var listByEstoque = (content, estoqueId) => {
   content.$axios
     .post("/estoqueLote/list", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
       },
     })
     .then((response) => {
@@ -26,7 +26,7 @@ var listByEstoque = (content, estoqueId) => {
         const lotes = response.data.data || [];
 
         // Commit para Vuex store
-        content.$store.commit("setListEstoqueLote", lotes);
+        content.$store.commit("estoque/setListEstoqueLote", lotes);
 
         // Toastr success (opcional)
         if (content.$toastr && content.$toastr.s) {
@@ -63,7 +63,7 @@ var listByEstoque = (content, estoqueId) => {
       }
 
       // Limpar lista em caso de erro
-      content.$store.commit("setListEstoqueLote", []);
+      content.$store.commit("estoque/setListEstoqueLote", []);
     });
 };
 
@@ -75,18 +75,18 @@ var listAll = (content) => {
   content.$axios
     .get("/estoqueLote/listAll", {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
       },
     })
     .then((response) => {
       if (response.data && response.data.status) {
         const lotes = response.data.data || [];
-        content.$store.commit("setListEstoqueLote", lotes);
+        content.$store.commit("estoque/setListEstoqueLote", lotes);
       }
     })
     .catch((error) => {
       console.error("❌ Erro ao listar todos os lotes:", error);
-      content.$store.commit("setListEstoqueLote", []);
+      content.$store.commit("estoque/setListEstoqueLote", []);
     });
 };
 

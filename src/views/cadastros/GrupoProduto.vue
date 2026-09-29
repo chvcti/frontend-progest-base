@@ -48,12 +48,12 @@ const filterTipo = ref("");
 const filterControlado = ref("");
 
 const listGrupoProdutos = computed(() => {
-  const data = store.state.listGrupoProdutos;
+  const data = store.state.cadastros.listGrupoProdutos;
   return data?.data || data || [];
 });
 
 const pagination = computed(() => {
-  const list = store.state.listGrupoProdutos;
+  const list = store.state.cadastros.listGrupoProdutos;
   if (list && list.current_page) {
     return {
       current_page: list.current_page,

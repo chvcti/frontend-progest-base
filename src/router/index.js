@@ -198,7 +198,7 @@ const router = createRouter({
     {
       path: "/:pathMatch(.*)*",
       redirect: (to) => {
-        const isAuthenticated = localStorage.getItem("token");
+        const isAuthenticated = sessionStorage.getItem("token") || localStorage.getItem("token");
         return isAuthenticated ? "/setor-atual" : "/login";
       },
     },
@@ -218,16 +218,16 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to, from, next) => {
-  const isAuthenticated = localStorage.getItem("token");
+  const isAuthenticated = sessionStorage.getItem("token") || localStorage.getItem("token");
   const hasSector = setorCookie.hasSector();
 
   // Helper to determine if logged user is 'solicitante' for the current sector
   const checkIsSolicitante = async () => {
-    const user = store.state.user;
+    const user = store.state.auth.user;
     if (!user) return false;
 
     try {
-      let list = store.state.listUsuariosSetor || [];
+      let list = store.state.estoque.listUsuariosSetor || [];
 
       // If not loaded yet, try to fetch user-setor vínculos
       if (
@@ -237,7 +237,7 @@ router.beforeEach(async (to, from, next) => {
       ) {
         try {
           await functionsUsuarioSetor.listAll({ $axios: axios, $store: store });
-          list = store.state.listUsuariosSetor || [];
+          list = store.state.estoque.listUsuariosSetor || [];
         } catch (e) {
           console.warn(
             "checkIsSolicitante: erro ao carregar usuarios do setor",
@@ -264,7 +264,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     // fallback to roles/perfil on user object
-    const userObj = store.state.user || {};
+    const userObj = store.state.auth.user || {};
     if (
       (userObj.roles &&
         userObj.roles.includes &&
@@ -279,11 +279,11 @@ router.beforeEach(async (to, from, next) => {
 
   // Helper to determine if logged user is 'almoxarife' for the current sector
   const checkIsAlmoxarife = async () => {
-    const user = store.state.user;
+    const user = store.state.auth.user;
     if (!user) return false;
 
     try {
-      let list = store.state.listUsuariosSetor || [];
+      let list = store.state.estoque.listUsuariosSetor || [];
 
       // If not loaded yet, try to fetch user-setor vínculos
       if (
@@ -293,7 +293,7 @@ router.beforeEach(async (to, from, next) => {
       ) {
         try {
           await functionsUsuarioSetor.listAll({ $axios: axios, $store: store });
-          list = store.state.listUsuariosSetor || [];
+          list = store.state.estoque.listUsuariosSetor || [];
         } catch (e) {
           console.warn(
             "checkIsAlmoxarife: erro ao carregar usuarios do setor",
@@ -320,7 +320,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     // fallback to roles/perfil on user object
-    const userObj = store.state.user || {};
+    const userObj = store.state.auth.user || {};
     if (
       (userObj.roles &&
         userObj.roles.includes &&
@@ -353,7 +353,7 @@ router.beforeEach(async (to, from, next) => {
 
   // Se a rota requer setor selecionado e não tem
   if (to.meta.requiresSector && !hasSector) {
-    const userObj = store.state.user || JSON.parse(localStorage.getItem('user') || '{}');
+    const userObj = store.state.auth.user || JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
     const isSuperAdmin = Boolean(userObj && userObj.is_super_admin);
     const isGlobalAdmin = userObj && (
       isSuperAdmin ||
@@ -387,7 +387,7 @@ router.beforeEach(async (to, from, next) => {
 
       // Restaurar estado do setor a partir dos cookies
       if (setorId && setorNome) {
-        store.commit("setSetorAtual", {
+        store.commit("estoque/setSetorAtual", {
           id: setorId,
           nome: setorNome,
         });
@@ -396,7 +396,7 @@ router.beforeEach(async (to, from, next) => {
       // Só carrega detalhes se não tem ou se é um setor diferente
       if (
         setorId &&
-        (!store.state.setorDetails || store.state.setorDetails.id != setorId)
+        (!store.state.estoque.setorDetails || store.state.estoque.setorDetails.id != setorId)
       ) {
         // Usar a função getSetorDetail que carrega setor + fornecedores relacionados
         const result = await functionsSetor.getSetorDetail(
@@ -421,7 +421,7 @@ router.beforeEach(async (to, from, next) => {
   // Bloquear acesso a rotas de gerenciamento para solicitantes e almoxarifes
   if (isAuthenticated && hasSector) {
     // Define se o usuário logado é o administrador global do sistema
-    const userObj = store.state.user || JSON.parse(localStorage.getItem('user') || '{}');
+    const userObj = store.state.auth.user || JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
     const isGlobalAdmin = userObj && (
       Boolean(userObj.is_super_admin) ||
       Boolean(userObj.is_admin)
@@ -497,7 +497,7 @@ router.beforeEach(async (to, from, next) => {
     // Guard 1.6: verificar allowAdminSetores (Admin CAF, Polo ou SuperAdmin)
     // ------------------------------------------------------------------
     if (to.meta && to.meta.allowAdminSetores && !isGlobalAdmin) {
-      const user = store.state.user || {};
+      const user = store.state.auth.user || {};
       const isAdminCaf = !!user.is_admin_caf;
       const isAdminPolo = !!user.is_admin_polo;
       
@@ -519,7 +519,7 @@ router.beforeEach(async (to, from, next) => {
     // Guard 1.8: verificar forbiddenForCAF
     // ------------------------------------------------------------------
     if (to.meta && to.meta.forbiddenForCAF) {
-      const setorDetalhe = store.state.setorDetails || {};
+      const setorDetalhe = store.state.estoque.setorDetails || {};
       const nome = (setorDetalhe.nome || "").toUpperCase();
       const isCAF = nome.includes("CAF") || nome.includes("FARMÁCIA CENTRAL") || nome.includes("FARMACIA CENTRAL");
       if (isCAF) {
@@ -533,7 +533,7 @@ router.beforeEach(async (to, from, next) => {
     // ------------------------------------------------------------------
     if (to.meta && to.meta.roles && to.meta.roles.length > 0) {
       try {
-        let list = store.state.listUsuariosSetor || [];
+        let list = store.state.estoque.listUsuariosSetor || [];
 
         // Se a lista não foi carregada ainda, tentar buscar
         if (
@@ -543,13 +543,13 @@ router.beforeEach(async (to, from, next) => {
         ) {
           try {
             await functionsUsuarioSetor.listAll({ $axios: axios, $store: store });
-            list = store.state.listUsuariosSetor || [];
+            list = store.state.estoque.listUsuariosSetor || [];
           } catch (e) {
             console.warn("Guard roles: erro ao carregar usuarios do setor", e);
           }
         }
 
-        const user = store.state.user;
+        const user = store.state.auth.user;
         const perfilDoUsuario = list.find((u) => {
           const userId =
             u.usuario_id || u.user_id || u.id || (u.usuario && u.usuario.id);

@@ -33,7 +33,7 @@ const localData = ref({
 const modalDataStore = computed(() => store.state.modalData.modalData);
 const modalFunction = computed(() => store.state.modalData.modalFunction);
 const listRegimesContratacaoStore = computed(() => {
-  const regimes = store.state.listRegimesContratacao || [];
+  const regimes = store.state.cadastros.listRegimesContratacao || [];
   // Mostrar regimes ativos + o regime atual do usuário (mesmo inativo) para não sumir no select de edição
   return regimes.filter(r => !r.status || r.status === 'A' || r.status === 'Ativo' || r.id == localData.value.regime_contratacao_id);
 });

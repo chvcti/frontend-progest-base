@@ -268,7 +268,7 @@ export default {
         : "Lotes do Produto";
     },
     lotes() {
-      return this.$store.state.listEstoqueLote || [];
+      return this.$store.state.estoque.listEstoqueLote || [];
     },
     totalQuantidade() {
       const total = this.lotes.reduce((total, lote) => {
@@ -281,9 +281,9 @@ export default {
       if (this.lotes.length > 0 && this.lotes.some(l => l.valor_unitario !== null && l.valor_unitario !== undefined)) {
         return true;
       }
-      const u = this.$store.state.user || {};
+      const u = this.$store.state.auth.user || {};
       const isSuper = Boolean(u.is_super_admin) || Boolean(u.is_admin);
-      const setorNome = (this.displaySetor?.nome || this.$store.state.setorDetails?.nome || '').toUpperCase();
+      const setorNome = (this.displaySetor?.nome || this.$store.state.estoque.setorDetails?.nome || '').toUpperCase();
       const isCAF = setorNome.includes('CAF') || setorNome.includes('CENTRAL DE ABASTECIMENTO');
       return isSuper && isCAF;
     },
@@ -343,7 +343,7 @@ export default {
     onConsumoSucesso() {
       // Refresh the lots and notify parent to refresh main list
       this.$emit('consumoSucesso');
-      this.$store.commit("setListEstoqueLote", []);
+      this.$store.commit("estoque/setListEstoqueLote", []);
       
       this.$toast?.s("Estoque atualizado.");
       this.fecharModal();

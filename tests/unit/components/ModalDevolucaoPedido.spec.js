@@ -43,6 +43,17 @@ describe("ModalDevolucaoPedido.vue - Validações e Fluxo de Devolução", () =>
   beforeEach(() => {
     vi.clearAllMocks();
     store = createStore({
+      modules: {
+        auth: {
+          namespaced: true,
+          state: () => ({
+            user: { id: 10, name: "Solicitante Teste" },
+          }),
+          getters: {
+            getUserToken: () => "mock-jwt-token",
+          },
+        },
+      },
       state: {
         user: { id: 10, name: "Solicitante Teste" },
       },
@@ -137,7 +148,7 @@ describe("ModalDevolucaoPedido.vue - Validações e Fluxo de Devolução", () =>
     await inputs[0].setValue(25);
     await flushPromises();
 
-    expect(wrapper.text()).toContain("A quantidade a devolver não pode exceder a quantidade liberada");
+    expect(wrapper.text()).toContain("A quantidade a devolver não pode superar o saldo atendido disponível.");
     const submitBtn = wrapper.findAll("button").find(b => b.text().includes("Enviar Solicitação"));
     expect(submitBtn.attributes("disabled")).toBeDefined();
   });

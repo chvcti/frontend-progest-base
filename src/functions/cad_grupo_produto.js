@@ -26,7 +26,7 @@ var ADD_UP = (content, funcao) => {
       grupoData,
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -75,7 +75,7 @@ var listAll = (content, url = null) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -87,9 +87,9 @@ var listAll = (content, url = null) => {
           status: item.status === "A" ? "Ativo" : "Inativo",
         }));
 
-        content.$store.commit("setListGrupoProdutos", enriched);
+        content.$store.commit("cadastros/setListGrupoProdutos", enriched);
       } else {
-        content.$store.commit("setListGrupoProdutos", []);
+        content.$store.commit("cadastros/setListGrupoProdutos", []);
       }
 
       content.$store.commit("setisSearching", false);
@@ -97,7 +97,7 @@ var listAll = (content, url = null) => {
     .catch((error) => {
       console.error("Erro na chamada da API listAll:", error);
       content.$store.commit("setisSearching", false);
-      content.$store.commit("setListGrupoProdutos", []);
+      content.$store.commit("cadastros/setListGrupoProdutos", []);
     });
 };
 
@@ -108,7 +108,7 @@ var listData = (content) => {
       { id: content.idData },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -132,7 +132,7 @@ var deleteData = (content, id) => {
       {},
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )

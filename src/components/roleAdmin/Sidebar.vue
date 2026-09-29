@@ -416,19 +416,19 @@ const emit = defineEmits(["toggle"]);
 
 // Verificar se o usuário é super admin (exclusivo para governança global)
 const isSuperAdmin = computed(() => {
-  return Boolean(store.getters.isSuperAdmin);
+  return Boolean(store.getters["auth/isSuperAdmin"]);
 });
 
 // Verificar se o usuário é admin (super admin ou admin do setor)
 const isAdminUser = computed(() => {
-  const u = store.state.user;
+  const u = store.state.auth.user;
   if (!u) return false;
   return Boolean(u.is_super_admin) || Boolean(u.is_admin);
 });
 
 // Verificar se o setor atual tem um setor fornecedor (não é raiz/fornecedor/distribuidor)
 const hasSetorFornecedor = computed(() => {
-  const setorDetails = store.state.setorDetails;
+  const setorDetails = store.state.estoque.setorDetails;
   return (
     setorDetails &&
     (setorDetails.setor_fornecedor ||
@@ -440,7 +440,7 @@ const hasSetorFornecedor = computed(() => {
 
 // Verificar se o setor atual possui controle de estoque ativado
 const setorTemEstoque = computed(() => {
-  const setorDetails = store.state.setorDetails;
+  const setorDetails = store.state.estoque.setorDetails;
   return setorDetails && !!setorDetails.estoque;
 });
 
@@ -449,9 +449,9 @@ const setorTemEstoque = computed(() => {
  * via listUsuariosSetor (mesma lógica do router e do Home).
  */
 const getPerfilAtual = () => {
-  const user = store.state.user;
+  const user = store.state.auth.user;
   if (!user) return '';
-  const list = store.state.listUsuariosSetor || [];
+  const list = store.state.estoque.listUsuariosSetor || [];
   const found = list.find((u) => {
     const userId = u.usuario_id || u.user_id || u.id || (u.usuario && u.usuario.id);
     return userId === user.id;
@@ -467,25 +467,25 @@ const getPerfilAtual = () => {
 const isAdminPerfil = computed(() => getPerfilAtual() === 'admin');
 
 /** Verifica se o usuário tem a flag de Admin Polo */
-const isAdminPolo = computed(() => store.state.user?.is_admin_polo || false);
+const isAdminPolo = computed(() => store.state.auth.user?.is_admin_polo || false);
 
 /** Usuário possui perfil 'almoxarife' no setor atual */
 const isAlmoxarifePerfil = computed(() => {
-  if (store.getters.isSuperAdmin) return false;
+  if (store.getters["auth/isSuperAdmin"]) return false;
   const perfil = getPerfilAtual();
   return perfil === 'almoxarife' || perfil.includes('almoxarife');
 });
 
 // Verificar se o usuário possui perfil 'solicitante' no setor atual
 const isSolicitante = computed(() => {
-  if (store.getters.isSuperAdmin) return false;
+  if (store.getters["auth/isSuperAdmin"]) return false;
 
-  const user = store.state.user;
+  const user = store.state.auth.user;
   if (!user) return false;
 
   try {
     // tentar usar a lista carregada no store (listUsuariosSetor)
-    const list = store.state.listUsuariosSetor || [];
+    const list = store.state.estoque.listUsuariosSetor || [];
     const found = list.find((u) => {
       const userId =
         u.usuario_id || u.user_id || u.id || (u.usuario && u.usuario.id);
@@ -516,7 +516,7 @@ const isSolicitante = computed(() => {
 
 // Obter o nome do setor atual
 const setorAtualNome = computed(() => {
-  const setorDetails = store.state.setorDetails;
+  const setorDetails = store.state.estoque.setorDetails;
   return setorDetails?.nome_exibicao || setorDetails?.nome || "Setor Atual";
 });
 
@@ -528,7 +528,7 @@ const isCAF = computed(() => {
 
 // Obter o nome da unidade do setor atual
 const unidadeNome = computed(() => {
-  const setorDetails = store.state.setorDetails;
+  const setorDetails = store.state.estoque.setorDetails;
   return setorDetails?.polo?.nome || "ProGest HGVC";
 });
 
@@ -568,7 +568,7 @@ const currentLogoSrc = computed(() => {
 
 // Carregar setores consumidores
 const loadSetoresConsumidores = async () => {
-  const setorDetails = store.state.setorDetails;
+  const setorDetails = store.state.estoque.setorDetails;
   if (!setorDetails || !setorDetails.id) return;
 
   try {
@@ -577,7 +577,7 @@ const loadSetoresConsumidores = async () => {
       { id: setorDetails.id },
       {
         headers: {
-          Authorization: `Bearer ${store.getters.getUserToken}`,
+          Authorization: `Bearer ${store.getters["auth/getUserToken"]}`,
         },
       },
     );
@@ -595,7 +595,7 @@ const loadSetoresConsumidores = async () => {
 // A sidebar é global, então busca por conta própria em vez de depender do
 // store, que só é preenchido enquanto a tela do setor está aberta.
 const loadSolicitacoesPendentes = async () => {
-  const setorDetails = store.state.setorDetails;
+  const setorDetails = store.state.estoque.setorDetails;
   if (!setorDetails || !setorDetails.id) {
     solicitacoesPendentes.value = 0;
     return;
@@ -607,7 +607,7 @@ const loadSolicitacoesPendentes = async () => {
       { setor_id: setorDetails.id },
       {
         headers: {
-          Authorization: `Bearer ${store.getters.getUserToken}`,
+          Authorization: `Bearer ${store.getters["auth/getUserToken"]}`,
         },
       },
     );
@@ -692,7 +692,7 @@ watch(relatoriosSubmenuOpen, (val) => {
 
 // Recarregar consumidores quando o setor atual mudar
 watch(
-  () => store.state.setorDetails,
+  () => store.state.estoque.setorDetails,
   () => {
     loadSetoresConsumidores();
     loadSolicitacoesPendentes();
@@ -703,7 +703,7 @@ watch(
 // Manter o badge em dia quando a própria tela de movimentações recarrega a
 // lista (aprovar/rejeitar/cancelar refletem aqui sem recarregar a página).
 watch(
-  () => store.state.listMovimentacoes,
+  () => store.state.estoque.listMovimentacoes,
   (lista) => {
     if (!Array.isArray(lista) || lista.length === 0) return;
     solicitacoesPendentes.value = lista.filter(

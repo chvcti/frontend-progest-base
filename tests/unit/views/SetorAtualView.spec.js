@@ -30,6 +30,44 @@ vi.mock("@/utils/setorCookie", () => ({
 // Helper para criar store mockada
 function createMockStore(user, setorDetails, listUsuariosSetor = []) {
   return createStore({
+    modules: {
+      auth: {
+        namespaced: true,
+        state: () => ({
+          user: user || null,
+        }),
+        getters: {
+          getUserToken: () => "mock-token",
+          isSuperAdmin: (state) => {
+            const u = state.user;
+            if (!u) return false;
+            return (
+              u.email === "adminti@gmail.com" ||
+              u.email === "admin@admin.com" ||
+              !!u.is_super_admin
+            );
+          },
+        },
+      },
+      estoque: {
+        namespaced: true,
+        state: () => ({
+          setorAtualId: setorDetails?.id || 1,
+          setorAtualNome: setorDetails?.nome || null,
+          setorDetails: setorDetails || null,
+          listUsuariosSetor: listUsuariosSetor,
+          listEstoque: [],
+        }),
+        mutations: {
+          setSetorDetails(state, val) {
+            state.setorDetails = val;
+          },
+          setListUsuariosSetor(state, val) {
+            state.listUsuariosSetor = val;
+          },
+        },
+      },
+    },
     state: {
       user: user || null,
       setorAtualId: setorDetails?.id || 1,
@@ -41,7 +79,7 @@ function createMockStore(user, setorDetails, listUsuariosSetor = []) {
     getters: {
       getUserToken: () => "mock-token",
       isSuperAdmin: (state) => {
-        const u = state.user;
+        const u = state.auth?.user || state.user;
         if (!u) return false;
         return (
           u.email === "adminti@gmail.com" ||
@@ -98,10 +136,11 @@ describe("SetorAtualView.vue & TabEstoque.vue - Regras Operacionais e Permissõe
     vi.spyOn(functionsMovimentacao, "listAll").mockResolvedValue({ success: true, data: [] });
     vi.spyOn(functionsEntrada, "listAll").mockResolvedValue({ success: true, data: [] });
     vi.spyOn(functionsUsuarioSetor, "listAll").mockImplementation(async (ctx) => {
+      const list = ctx?.$store?.state?.estoque?.listUsuariosSetor || ctx?.$store?.state?.listUsuariosSetor || [];
       if (ctx && ctx.usuariosItems) {
-        ctx.usuariosItems.value = ctx.$store.state.listUsuariosSetor || [];
+        ctx.usuariosItems.value = list;
       }
-      return { success: true, data: ctx?.$store?.state?.listUsuariosSetor || [] };
+      return { success: true, data: list };
     });
   });
 

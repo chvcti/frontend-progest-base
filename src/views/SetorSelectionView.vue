@@ -243,7 +243,7 @@ const polos = computed(() => {
 });
 
 const isGlobalAdmin = computed(() => {
-  const user = store.state.user;
+  const user = store.state.auth.user;
   return Boolean(user && user.is_super_admin);
 });
 
@@ -290,7 +290,7 @@ const carregarSetores = async () => {
     if (resultado.success && resultado.data && resultado.data.length > 0) {
       console.log("✓ Setores retornados da API:", resultado.data.length);
 
-      const user = store.state.user;
+      const user = store.state.auth.user;
       const isSuperAdmin = Boolean(user && user.is_super_admin);
 
       if (isSuperAdmin) {
@@ -299,7 +299,7 @@ const carregarSetores = async () => {
       } else {
         // Usuários comuns, administradores de setor (incluindo CAF) ou polos:
         // DEVEM listar estritamente os setores aos quais possuem vínculo em usuario_setor
-        const token = store.getters.getUserToken || localStorage.getItem("token");
+        const token = store.getters["auth/getUserToken"] || sessionStorage.getItem("token") || localStorage.getItem("token");
         let vinculosIds = [];
 
         if (Array.isArray(user?.setores) && user.setores.length > 0) {
@@ -383,7 +383,7 @@ const selecionarSetor = async () => {
     setorCookie.setSector(setor.id, setor.nome);
 
     // Atualizar estado do Vuex
-    store.commit("setSetorAtual", {
+    store.commit("estoque/setSetorAtual", {
       id: setor.id,
       nome: setor.nome,
     });
@@ -418,14 +418,14 @@ const logout = () => {
 
     // Limpar dados de autenticação
     try {
-      store.commit("clearUserToken");
+      store.commit("auth/clearUserToken");
       console.log("✓ Token limpo");
     } catch (e) {
       console.warn("⚠️ Erro ao limpar token:", e);
     }
 
     try {
-      store.commit("setUser", null);
+      store.commit("auth/setUser", null);
       console.log("✓ Usuário limpo");
     } catch (e) {
       console.warn("⚠️ Erro ao limpar usuário:", e);
@@ -433,14 +433,14 @@ const logout = () => {
 
     // Limpar dados do setor
     try {
-      store.commit("clearSetorAtual");
+      store.commit("estoque/clearSetorAtual");
       console.log("✓ Setor Atual limpo");
     } catch (e) {
       console.warn("⚠️ Erro ao limpar setor atual:", e);
     }
 
     try {
-      store.commit("clearSetorDetails");
+      store.commit("estoque/clearSetorDetails");
       console.log("✓ Detalhes do setor limpos");
     } catch (e) {
       console.warn("⚠️ Erro ao limpar detalhes do setor:", e);
@@ -453,13 +453,15 @@ const logout = () => {
       console.warn("⚠️ Erro ao limpar cookies:", e);
     }
 
-    // Limpar localStorage
+    // Limpar sessionStorage e localStorage
     try {
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("user");
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      console.log("✓ localStorage limpo");
+      console.log("✓ Armazenamento de sessão limpo");
     } catch (e) {
-      console.warn("⚠️ Erro ao limpar localStorage:", e);
+      console.warn("⚠️ Erro ao limpar armazenamento:", e);
     }
 
     console.log(
@@ -480,7 +482,7 @@ const logout = () => {
 onMounted(() => {
   console.log("📱 SetorSelectionView montado");
   // Verificar se está autenticado
-  const token = store.getters.getUserToken;
+  const token = store.getters["auth/getUserToken"];
   console.log("🔑 Token verificado:", token ? "✓ Presente" : "✗ Ausente");
 
   if (!token) {

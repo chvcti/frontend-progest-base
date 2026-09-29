@@ -47,7 +47,7 @@ var ADD_UP = (content, funcao) => {
   content.$axios
     .post(funcao == "ADD" ? "/setores/add" : "/setores/update", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
       },
     })
     .then(function (response) {
@@ -211,7 +211,7 @@ var getSetoresWithAccess = (content) => {
       {},
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -259,7 +259,7 @@ var listAll = (content, url = null) => {
       },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -272,7 +272,7 @@ var listAll = (content, url = null) => {
             ...s,
             statusFormatted: s.status === "A" ? "Ativo" : "Inativo",
           }));
-          content.$store.commit("setListSetoresGerais", { data: enriched });
+          content.$store.commit("cadastros/setListSetoresGerais", { data: enriched });
         } else if (
           response.data.data.data &&
           Array.isArray(response.data.data.data)
@@ -283,17 +283,17 @@ var listAll = (content, url = null) => {
             ...s,
             statusFormatted: s.status === "A" ? "Ativo" : "Inativo",
           }));
-          content.$store.commit("setListSetoresGerais", {
+          content.$store.commit("cadastros/setListSetoresGerais", {
             ...response.data.data, // mantém meta de paginação
             data: enriched,
           });
         } else {
           // Caso inesperado, armazenar como vazio
-          content.$store.commit("setListSetoresGerais", { data: [] });
+          content.$store.commit("cadastros/setListSetoresGerais", { data: [] });
         }
       } else {
         console.error("Resposta da API sem dados válidos:", response.data);
-        content.$store.commit("setListSetoresGerais", { data: [] });
+        content.$store.commit("cadastros/setListSetoresGerais", { data: [] });
       }
       content.$store.commit("setisSearching", false);
     })
@@ -315,7 +315,7 @@ var listData = (content) => {
       { id: content.idData },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -339,7 +339,7 @@ export const criarSetor = async (dadosSetor) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        Authorization: `Bearer ${sessionStorage.getItem("token") || localStorage.getItem("token")}`,
       },
       body: JSON.stringify({ setores: dadosSetor }),
     });
@@ -377,7 +377,7 @@ export const listarSetores = async (
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${sessionStorage.getItem("token") || localStorage.getItem("token")}`,
         },
         body: JSON.stringify(body),
       });
@@ -400,7 +400,7 @@ export const listarSetores = async (
 
       const response = await axiosInstance.post("/setores/list", body, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${sessionStorage.getItem("token") || localStorage.getItem("token")}`,
         },
       });
 
@@ -428,7 +428,7 @@ export const buscarSetorPorId = async (id) => {
       { id },
       {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${sessionStorage.getItem("token") || localStorage.getItem("token")}`,
         },
       }
     );
@@ -458,7 +458,7 @@ export const atualizarSetor = async (dadosSetor) => {
       { setores: dadosSetor },
       {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${sessionStorage.getItem("token") || localStorage.getItem("token")}`,
         },
       }
     );
@@ -487,7 +487,7 @@ var deleteSetor = (content, id) => {
       {},
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -523,7 +523,7 @@ var toggleStatus = (content, setorId) => {
       { id: setorId },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -551,7 +551,7 @@ var getSetorDetail = (content, setorId) => {
       { id: setorId },
       {
         headers: {
-          Authorization: "Bearer " + content.$store.getters.getUserToken,
+          Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         },
       }
     )
@@ -567,7 +567,7 @@ var getSetorDetail = (content, setorId) => {
         );
 
         // Armazenar detalhes do setor no Vuex
-        content.$store.commit("setSetorDetails", setorData);
+        content.$store.commit("estoque/setSetorDetails", setorData);
         return { success: true, data: setorData };
       } else {
         console.error(
@@ -598,7 +598,7 @@ export const addDistribuidor = async (setorSolicitanteId, setorFornecedorId) => 
       },
       {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${sessionStorage.getItem("token") || localStorage.getItem("token")}`,
         },
       }
     );
@@ -629,7 +629,7 @@ export const removeDistribuidor = async (id) => {
       { id },
       {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${sessionStorage.getItem("token") || localStorage.getItem("token")}`,
         },
       }
     );

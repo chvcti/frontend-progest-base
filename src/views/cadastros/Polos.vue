@@ -41,12 +41,12 @@ const sortBy = ref("nome");
 const sortDir = ref("asc");
 
 const listPolos = computed(() => {
-  const data = store.state.listPolos;
+  const data = store.state.cadastros.listPolos;
   return data?.data || data || [];
 });
 
 const pagination = computed(() => {
-  const list = store.state.listPolos;
+  const list = store.state.cadastros.listPolos;
   if (list && list.current_page) {
     return {
       current_page: list.current_page,

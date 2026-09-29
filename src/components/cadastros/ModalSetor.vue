@@ -42,13 +42,13 @@ const isModalOpen = computed({
 });
 
 const polosList = computed(() => {
-  const list = store.state.listPolos;
+  const list = store.state.cadastros.listPolos;
   if (Array.isArray(list)) return list;
   return Array.isArray(list?.data) ? list.data : [];
 });
 
 const allSetores = computed(() => {
-  const list = store.state.listSetoresGerais || {};
+  const list = store.state.cadastros.listSetoresGerais || {};
   const arr = Array.isArray(list.data) ? list.data : [];
   return arr.filter(
     (s) => s.estoque === true || s.estoque === 1 || s.estoque === "1",

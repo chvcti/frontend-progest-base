@@ -14,19 +14,18 @@ var listBySetor = (content, setorId, perPage = 5000, page = 1) => {
   return content.$axios
     .post("/movimentacao/listByUnidade", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + (content.$store?.getters ? (content.$store.getters["auth/getUserToken"] || content.$store.getters.getUserToken) : ""),
         "Content-Type": "application/json",
       },
     })
     .then((response) => {
       if (response.data && response.data.status) {
         const data = response.data.data || [];
-        content.$store.commit(
-          "setListMovimentacoes",
+        content.$store.commit("estoque/setListMovimentacoes",
           Array.isArray(data) ? data : data.data || []
         );
       } else {
-        content.$store.commit("setListMovimentacoes", []);
+        content.$store.commit("estoque/setListMovimentacoes", []);
       }
     })
     .catch((error) => {
@@ -41,18 +40,17 @@ var listBySetor = (content, setorId, perPage = 5000, page = 1) => {
           .get("/movimentacao/listByUnidade", {
             params: payload,
             headers: {
-              Authorization: "Bearer " + content.$store.getters.getUserToken,
+              Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
             },
           })
           .then((response) => {
             if (response.data && response.data.status) {
               const data = response.data.data || [];
-              content.$store.commit(
-                "setListMovimentacoes",
+              content.$store.commit("estoque/setListMovimentacoes",
                 Array.isArray(data) ? data : data.data || []
               );
             } else {
-              content.$store.commit("setListMovimentacoes", []);
+              content.$store.commit("estoque/setListMovimentacoes", []);
             }
           })
           .catch((err2) => {
@@ -69,7 +67,7 @@ var listBySetor = (content, setorId, perPage = 5000, page = 1) => {
                 {
                   headers: {
                     Authorization:
-                      "Bearer " + content.$store.getters.getUserToken,
+                      "Bearer " + (content.$store?.getters ? (content.$store.getters["auth/getUserToken"] || content.$store.getters.getUserToken) : ""),
                     "Content-Type": "application/json",
                   },
                 }
@@ -77,12 +75,11 @@ var listBySetor = (content, setorId, perPage = 5000, page = 1) => {
               .then((resp3) => {
                 if (resp3.data && resp3.data.status) {
                   const data = resp3.data.data || [];
-                  content.$store.commit(
-                    "setListMovimentacoes",
+                  content.$store.commit("estoque/setListMovimentacoes",
                     Array.isArray(data) ? data : data.data || []
                   );
                 } else {
-                  content.$store.commit("setListMovimentacoes", []);
+                  content.$store.commit("estoque/setListMovimentacoes", []);
                 }
               })
               .catch((err3) => {
@@ -96,7 +93,7 @@ var listBySetor = (content, setorId, perPage = 5000, page = 1) => {
                     "Erro ao carregar movimentações";
                   content.$toastr.e(mensagem);
                 }
-                content.$store.commit("setListMovimentacoes", []);
+                content.$store.commit("estoque/setListMovimentacoes", []);
               });
           });
       }
@@ -106,7 +103,7 @@ var listBySetor = (content, setorId, perPage = 5000, page = 1) => {
           error.response?.data?.message || "Erro ao carregar movimentações";
         content.$toastr.e(mensagem);
       }
-      content.$store.commit("setListMovimentacoes", []);
+      content.$store.commit("estoque/setListMovimentacoes", []);
     });
 };
 
@@ -117,8 +114,10 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
     content.setorId ||
     content.setor?.id ||
     content.setor?.value?.id ||
-    content.$store.state.setorAtualId ||
-    content.$store.state.setorDetails?.id ||
+    content.$store?.state?.estoque?.setorAtualId ||
+    content.$store?.state?.setorAtualId ||
+    content.$store?.state?.estoque?.setorDetails?.id ||
+    content.$store?.state?.setorDetails?.id ||
     setorCookie.getSectorId();
 
   if (!setorId) {
@@ -137,7 +136,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
   return content.$axios
     .post("/movimentacao/listByUnidade", payload, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
         "Content-Type": "application/json",
       },
     })
@@ -155,7 +154,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
           Object.assign(content, { movimentacoesItems: movimentacoes });
         }
 
-        content.$store.commit("setListMovimentacoes", movimentacoes);
+        content.$store.commit("estoque/setListMovimentacoes", movimentacoes);
         console.log("✓ setListMovimentacoes atualizado:", movimentacoes.length);
 
         return { success: true, data: movimentacoes };
@@ -165,7 +164,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
         } else if (content.movimentacoesItems !== undefined) {
           Object.assign(content, { movimentacoesItems: [] });
         }
-        content.$store.commit("setListMovimentacoes", []);
+        content.$store.commit("estoque/setListMovimentacoes", []);
         return { success: false, data: [] };
       }
     })
@@ -180,7 +179,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
           .get("/movimentacao/listByUnidade", {
             params: payload,
             headers: {
-              Authorization: "Bearer " + content.$store.getters.getUserToken,
+              Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
             },
           })
           .then((response) => {
@@ -201,7 +200,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
                 Object.assign(content, { movimentacoesItems: movimentacoes });
               }
 
-              content.$store.commit("setListMovimentacoes", movimentacoes);
+              content.$store.commit("estoque/setListMovimentacoes", movimentacoes);
               console.log(
                 "✓ setListMovimentacoes atualizado (fallback):",
                 movimentacoes.length
@@ -213,7 +212,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
               } else if (content.movimentacoesItems !== undefined) {
                 Object.assign(content, { movimentacoesItems: [] });
               }
-              content.$store.commit("setListMovimentacoes", []);
+              content.$store.commit("estoque/setListMovimentacoes", []);
               return { success: false, data: [] };
             }
           })
@@ -224,7 +223,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
             } else if (content.movimentacoesItems !== undefined) {
               Object.assign(content, { movimentacoesItems: [] });
             }
-            content.$store.commit("setListMovimentacoes", []);
+            content.$store.commit("estoque/setListMovimentacoes", []);
             return { success: false, data: [], error: err2 };
           });
       }
@@ -235,7 +234,7 @@ var listAll = (content, filters = {}, perPage = 50, page = 1) => {
       } else if (content.movimentacoesItems !== undefined) {
         Object.assign(content, { movimentacoesItems: [] });
       }
-      content.$store.commit("setListMovimentacoes", []);
+      content.$store.commit("estoque/setListMovimentacoes", []);
       return { success: false, data: [], error };
     });
 };
@@ -245,7 +244,7 @@ var listData = (content, movimentacaoId) => {
   return content.$axios
     .get(`/movimentacao/${movimentacaoId}`, {
       headers: {
-        Authorization: "Bearer " + content.$store.getters.getUserToken,
+        Authorization: "Bearer " + content.$store.getters["auth/getUserToken"],
       },
     })
     .then((res) => (res.data?.status ? res.data.data : null))
@@ -267,7 +266,7 @@ var ADD_UP = (content, funcao = "ADD") => {
 
   const resolvedUserId =
     src.usuario_id ||
-    (content && content.$store ? content.$store.state.user?.id : null) ||
+    (content && content.$store ? (content.$store.state.auth?.user?.id || content.$store.state.user?.id) : null) ||
     null;
   const payload = {
     usuario_id: resolvedUserId,
@@ -300,7 +299,7 @@ var ADD_UP = (content, funcao = "ADD") => {
       headers: {
         Authorization:
           "Bearer " +
-          (content.$store ? content.$store.getters.getUserToken : ""),
+          (content.$store ? content.$store.getters["auth/getUserToken"] : ""),
         "Content-Type": "application/json",
       },
     })
@@ -364,7 +363,7 @@ var registrarConsumoInterno = (content, payload) => {
   return content.$axios
     .post("/movimentacao/consumo-interno", payload, {
       headers: {
-        Authorization: "Bearer " + (content.$store ? content.$store.getters.getUserToken : ""),
+        Authorization: "Bearer " + (content.$store?.getters ? (content.$store.getters["auth/getUserToken"] || content.$store.getters.getUserToken || "") : ""),
         "Content-Type": "application/json",
       },
     })
@@ -405,7 +404,7 @@ var devolverPedido = (content, movimentacaoId, payload) => {
   return content.$axios
     .post(`/movimentacao/${movimentacaoId}/devolver`, payload, {
       headers: {
-        Authorization: "Bearer " + (content.$store ? content.$store.getters.getUserToken : ""),
+        Authorization: "Bearer " + (content.$store?.getters ? (content.$store.getters["auth/getUserToken"] || content.$store.getters.getUserToken || "") : ""),
         "Content-Type": "application/json",
       },
     })

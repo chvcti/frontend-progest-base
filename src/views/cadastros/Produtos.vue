@@ -77,7 +77,7 @@ const filterGrupo = ref("");
 const filterMarca = ref("");
 
 // Listas auxiliares para os filtros
-const gruposParaFiltro = computed(() => store.state.gruposProdutos || []);
+const gruposParaFiltro = computed(() => store.state.cadastros.gruposProdutos || []);
 
 // Lista unica de marcas extraídas dos produtos
 const marcasParaFiltro = computed(() => {
@@ -87,19 +87,19 @@ const marcasParaFiltro = computed(() => {
 });
 
 const isAdmin = computed(() => {
-  const user = store.state.user || store.getters.getUser;
+  const user = store.state.auth.user || store.getters["auth/getUser"];
   if (!user) return false;
   if (
     user.is_super_admin ||
     user.is_admin ||
-    store.getters.isSuperAdmin
+    store.getters["auth/isSuperAdmin"]
   ) {
     return true;
   }
   if (user.perfil === "admin" || user.role === "admin" || user.usuario_tipo === "admin") {
     return true;
   }
-  const list = store.state.listUsuariosSetor || [];
+  const list = store.state.estoque.listUsuariosSetor || [];
   if (
     list.some(
       (u) =>
@@ -109,14 +109,14 @@ const isAdmin = computed(() => {
   ) {
     return true;
   }
-  const setoresComAcesso = store.getters.getSetoresComAcesso || [];
+  const setoresComAcesso = store.getters["estoque/getSetoresComAcesso"] || [];
   return setoresComAcesso.some((s) => s.perfil === "admin");
 });
 
 const canManageProdutos = computed(() => isAdmin.value);
 
 const listProdutos = computed(() => {
-  const data = store.state.listProdutos;
+  const data = store.state.cadastros.listProdutos;
   if (!data) return [];
   if (Array.isArray(data)) return data;
   return data.data && Array.isArray(data.data) ? data.data : [];
@@ -239,7 +239,7 @@ onMounted(() => {
       .then((r) => {
         if (r.data?.status) {
           const data = r.data.data.data || r.data.data;
-          store.commit("setGruposProdutos", Array.isArray(data) ? data : []);
+          store.commit("cadastros/setGruposProdutos", Array.isArray(data) ? data : []);
         }
       });
   }

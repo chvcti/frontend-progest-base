@@ -20,16 +20,16 @@ export function usePerfil() {
    * no setor atual (conforme a lista listUsuariosSetor do Vuex).
    */
   const temPerfil = (perfilAlvo) => {
-    const user = store.state.user
+    const user = store.state.auth?.user ?? store.state.user
     if (!user) return false
 
     // GOD MODE: Super Admin tem todos os poderes, menos o de Solicitante
-    if (store?.getters?.isSuperAdmin) {
+    if (store?.getters?.['auth/isSuperAdmin'] ?? store?.getters?.isSuperAdmin) {
       if (perfilAlvo === 'solicitante') return false;
       return true;
     }
 
-    const list = store.state.listUsuariosSetor || []
+    const list = store.state.estoque?.listUsuariosSetor ?? store.state.listUsuariosSetor ?? []
 
     // Verificar na lista de usuários do setor atual
     const found = list.some((u) => {
