@@ -11,6 +11,7 @@ import {
   BuildingIcon,
   ShieldCheckIcon,
   HashIcon,
+  BookmarkIcon,
 } from "lucide-vue-next";
 
 const props = defineProps({
@@ -28,7 +29,7 @@ const close = () => emit("update:open", false);
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
         <DialogTitle class="text-base font-semibold text-slate-800">
-          Detalhes da Unidade
+          Detalhes do Polo
         </DialogTitle>
       </DialogHeader>
 
@@ -44,7 +45,14 @@ const close = () => emit("update:open", false);
             <h3 class="text-lg font-bold text-slate-800 tracking-tight leading-tight">
               {{ item.nome || "—" }}
             </h3>
-            <div class="flex items-center gap-2 mt-1">
+            <div class="flex items-center gap-2 mt-1 flex-wrap">
+              <Badge
+                v-if="item.sigla"
+                variant="outline"
+                class="text-[10px] px-2 py-0.5 uppercase tracking-wider font-black text-primary border-primary/30 bg-primary/5"
+              >
+                {{ item.sigla }}
+              </Badge>
               <Badge
                 :variant="item.status === 'A' || item.status === 'Ativo' ? 'default' : 'destructive'"
                 class="text-[10px] px-2.5 py-0.5 uppercase tracking-widest font-bold rounded-full"
@@ -67,6 +75,16 @@ const close = () => emit("update:open", false);
             <div>
               <p class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Identificador</p>
               <p class="text-sm text-slate-700 font-mono font-medium">#{{ item.id || "—" }}</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+              <BookmarkIcon class="w-4 h-4 text-indigo-500" />
+            </div>
+            <div>
+              <p class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Sigla</p>
+              <p class="text-sm text-slate-800 font-bold uppercase tracking-wider">{{ item.sigla || "—" }}</p>
             </div>
           </div>
 

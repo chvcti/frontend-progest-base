@@ -27,10 +27,12 @@ const titleModal = "Gestão de Polos";
 const varsModalData = {
   status: "A",
   nome: "",
+  sigla: "",
 };
 
 const columns = [
   { key: "id", label: "#", align: "center", sortable: true },
+  { key: "sigla", label: "Sigla", align: "center", sortable: true },
   { key: "nome", label: "Polo", sortable: true },
   { key: "status", label: "Status", align: "center", sortable: true },
 ];
@@ -178,6 +180,14 @@ onMounted(listAll);
               >
                 {{ item.status }}
               </Badge>
+            </template>
+
+            <template #cell-sigla="{ item }">
+              <span
+                class="inline-flex items-center justify-center font-black px-2.5 py-1 text-xs uppercase tracking-wider rounded-lg bg-slate-100 text-slate-700 border border-slate-200"
+              >
+                {{ item.sigla || "—" }}
+              </span>
             </template>
 
             <template #cell-nome="{ item }">
