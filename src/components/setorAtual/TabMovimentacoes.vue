@@ -56,7 +56,6 @@ import {
   RotateCcwIcon,
   ArrowRightIcon,
 } from "lucide-vue-next";
-import ModalNovaMovimentacao from "@/components/cadastros/ModalNovaMovimentacao.vue";
 import ModalDevolucaoPedido from "@/components/roleSolicitante/ModalDevolucaoPedido.vue";
 import { useToast } from "@/components/ui/toast/use-toast";
 import { imprimirPedido } from "@/utils/imprimirPedido";
@@ -95,15 +94,6 @@ const parentData = inject("setorAtualData", {
   movimentacoesItems: [],
 });
 
-const dialogMovimentacaoOpen = ref(false);
-const modoInicialMovimentacao = ref("T");
-const movimentacaoParaDevolver = ref(null);
-
-const abrirModalRequisicao = () => {
-  movimentacaoParaDevolver.value = null;
-  modoInicialMovimentacao.value = "T";
-  dialogMovimentacaoOpen.value = true;
-};
 const dialogDetalhesOpen = ref(false);
 const dialogAprovacaoOpen = ref(false);
 const movimentacaoSelecionada = ref(null);
@@ -783,10 +773,9 @@ const cancelarMovimentacao = async () => {
   }
 };
 
-// Ações de rascunho
+// Ações de rascunho: redireciona para a central de pedidos
 const abrirEditarRascunho = (mov) => {
-  rascunhoParaEditar.value = mov;
-  dialogEditarRascunhoOpen.value = true;
+  router.push({ path: "/pedidos", query: { tab: "historico" } });
 };
 
 const confirmarEnvioRascunho = (mov) => {
@@ -853,16 +842,6 @@ const calcularQtdDevolvida = (mov, itemId) => {
 
 <template>
   <div class="flex flex-col gap-4 pb-10">
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-end gap-3">
-      <Button
-        v-if="!isCAF"
-        @click="abrirModalRequisicao"
-        class="gap-2 shadow-lg shadow-primary/20"
-      >
-        <PlusIcon class="w-4 h-4" /> Nova Requisição
-      </Button>
-    </div>
 
     <!-- Tabs de Navegação de Movimentações -->
     <div class="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto">
@@ -1493,24 +1472,6 @@ const calcularQtdDevolvida = (mov, itemId) => {
       :movimentacao="pedidoParaDevolver"
       @sucesso="onDevolucaoSucesso" 
       @update:open="(val) => { if (!val) pedidoParaDevolver = null; }"
-    />
-
-    <ModalNovaMovimentacao
-      v-model:open="dialogMovimentacaoOpen"
-      :setorId="setorId"
-      :setorNome="setorNome"
-      :modoInicial="modoInicialMovimentacao"
-      :movimentacaoOrigem="movimentacaoParaDevolver"
-      @update:open="(val) => { if (!val) movimentacaoParaDevolver = null; }"
-    />
-
-    <!-- Modal Editar Rascunho -->
-    <ModalNovaMovimentacao
-      v-model:open="dialogEditarRascunhoOpen"
-      :setorId="setorId"
-      :setorNome="setorNome"
-      :rascunho="rascunhoParaEditar"
-      @registrado="() => location.reload()"
     />
 
     <!-- Details View: Redesign em 4 Blocos Estruturados (Padrão Hospitalar) -->
