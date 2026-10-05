@@ -1,14 +1,14 @@
 apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
-  name: frontend-progest-base
-  title: "frontend-progest-base"
-  description: "Sistema frontend-progest-base analisado automaticamente"
+  name: progest
+  title: "progest"
+  description: "Sistema hospitalar integrado para controle de estoques, rastreabilidade de lotes com critério FIFO/FEFO, dispensação setorial e gestão de medicamentos controlados (Portaria 344/98 e SIMPAS)."
   annotations:
     github.com/project-slug: "chvcti/frontend-progest-base"
     backstage.io/techdocs-ref: "dir:."
 spec:
-  owner: user:chvcti
+  owner: user:ifba
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Resource
@@ -29,18 +29,17 @@ spec:
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: frontend-progest-base-frontend
-  title: "frontend-progest-base-frontend"
-  description: "Componente frontend-progest-base-frontend (website)"
+  name: progest-frontend-base
+  title: "progest-frontend-base"
+  description: "Interface SPA (*Single Page Application*) do sistema hospitalar ProGest. Desenvolvido com **Vue.js 3** (Composition & Options API), **Vite** e **TailwindCSS**, o painel web oferece uma experiência moderna, ágil e responsiva para profissionais de saúde (solicitantes em enfermarias e UTIs), almoxarifes/farmacêuticos hospitalares e administradores da rede."
   tags:
     - vue-js
   annotations:
     github.com/project-slug: "chvcti/frontend-progest-base"
-    backstage.io/techdocs-ref: "dir:."
 spec:
   type: website
   lifecycle: experimental
-  owner: user:chvcti
-  system: frontend-progest-base
+  owner: user:ifba
+  system: progest-frontend-base
   dependsOn:
     - resource:default/traefik
