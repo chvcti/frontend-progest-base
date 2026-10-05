@@ -1,0 +1,45 @@
+site_name: ProGest Frontend Web - Documentação Técnica
+site_description: Documentação de Arquitetura, Componentes, Rotas e Fluxos de Usuário do Frontend ProGest no padrão Backstage TechDocs.
+site_url: https://github.com/progest-hgvca/frontend-progest-base
+
+nav:
+  - Visão Geral: index.md
+  - Arquitetura & Componentes: architecture.md
+  - Rotas & Route Guards: routing-guards.md
+  - Gerenciamento de Estado (Vuex): state-management.md
+  - Jornadas de Usuário: user-journeys.md
+  - Deploy & Operações: deployment-operations.md
+
+plugins:
+  - techdocs-core
+
+theme:
+  name: material
+  language: pt-BR
+  palette:
+    - scheme: default
+      primary: teal
+      accent: cyan
+    - scheme: slate
+      primary: teal
+      accent: cyan
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - tables
+  - toc:
+      permalink: true
