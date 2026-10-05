@@ -1,37 +1,46 @@
 apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: frontend-progest-base
+  title: "frontend-progest-base"
+  description: "Sistema frontend-progest-base analisado automaticamente"
+  annotations:
+    github.com/project-slug: "chvcti/frontend-progest-base"
+    backstage.io/techdocs-ref: "dir:."
+spec:
+  owner: user:chvcti
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: traefik
+  title: "Traefik"
+  description: "proxy reverso projetado para gerenciar e rotear o tráfego de redes e microsserviços de forma automatizada"
+  tags:
+    - resource
+  annotations:
+    github.com/project-slug: "chvcti/frontend-progest-base"
+spec:
+  type: database
+  lifecycle: experimental
+  owner: user:ifba
+  system: frontend-progest-base
+---
+apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: progest-frontend-web
-  title: ProGest Frontend Web
-  description: Aplicação Web SPA (Single Page Application) do Sistema Hospitalar ProGest, desenvolvida em Vue.js 3, Vite e TailwindCSS para gestão de pedidos, dispensação e controle de estoque hospitalar.
+  name: frontend-progest-base-frontend
+  title: "frontend-progest-base-frontend"
+  description: "Componente frontend-progest-base-frontend (website)"
   tags:
-    - vue
-    - vue3
-    - vite
-    - tailwindcss
-    - spa
-    - frontend
-    - healthcare
-  links:
-    - url: https://github.com/progest-hgvca/frontend-progest-base
-      title: Repositório GitHub
-      icon: github
-    - url: http://18.230.26.35/
-      title: Aplicação Web Homologação (AWS)
-      icon: web
-    - url: http://app.localhost/
-      title: Aplicação Web Local (Docker)
-      icon: dashboard
+    - vue-js
   annotations:
-    backstage.io/techdocs-ref: dir:.
-    github.com/project-slug: progest-hgvca/frontend-progest-base
+    github.com/project-slug: "chvcti/frontend-progest-base"
+    backstage.io/techdocs-ref: "dir:."
 spec:
   type: website
-  lifecycle: production
-  owner: squad-progest-hgvc
-  system: progest-hospitalar
-  consumesApis:
-    - progest-rest-api
+  lifecycle: experimental
+  owner: user:chvcti
+  system: frontend-progest-base
   dependsOn:
-    - component:progest-backend-api
-    - component:traefik-proxy
+    - resource:default/traefik
