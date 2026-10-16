@@ -72,6 +72,7 @@ const context = {
   $axios: axios,
   $store: store,
   $toastr: undefined,
+  setor,
   estoqueItems,
   resumoEstoque,
   setorEstoque,

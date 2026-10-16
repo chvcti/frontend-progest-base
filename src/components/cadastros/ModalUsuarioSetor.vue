@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, computed, inject, nextTick } from "vue";
+import { useStore } from "vuex";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ import {
   XIcon,
 } from "lucide-vue-next";
 import Funcoes from "@/functions/cad_usuario_setor.js";
+import functionsSetor from "@/functions/cad_setores.js";
 
 const props = defineProps({
   setorId: { type: [Number, String], required: true },
@@ -31,9 +33,11 @@ const props = defineProps({
 
 const emit = defineEmits(["changed"]);
 
+const store = useStore();
 const isOpen = ref(false);
 const loading = ref(false);
 const availableUsers = ref([]);
+const setorLocal = ref(null);
 const form = ref({
   usuario_id: "",
   perfil: "solicitante",
@@ -55,16 +59,34 @@ const closeModal = () => {
 
 defineExpose({ openModal, closeModal });
 
+const currentSetor = computed(() => {
+  if (setorLocal.value && Number(setorLocal.value.id) === Number(props.setorId)) {
+    return setorLocal.value;
+  }
+  const sStore = store || parentContext.$store;
+  const details = sStore?.state?.estoque?.setorDetails || sStore?.state?.setorDetails || parentContext?.setor?.value;
+  if (details && (Number(details.id) === Number(props.setorId) || !props.setorId)) {
+    return details;
+  }
+  // Fallback: verificar se existe na lista geral de setores do store
+  const listGerais = sStore?.state?.cadastros?.listSetoresGerais;
+  const setoresList = Array.isArray(listGerais?.data) ? listGerais.data : Array.isArray(listGerais) ? listGerais : [];
+  const found = setoresList.find((s) => Number(s.id) === Number(props.setorId));
+  if (found) return found;
+
+  return setorLocal.value || details || null;
+});
+
 const hasEstoque = computed(() => {
-  const s = parentContext.$store?.state?.setorDetails;
-  return s && !!s.estoque;
+  const s = currentSetor.value;
+  return s ? Boolean(s.estoque && s.estoque !== "0" && s.estoque !== 0) : false;
 });
 
 const isCentralOuCAF = computed(() => {
-  const s = parentContext.$store?.state?.setorDetails;
+  const s = currentSetor.value;
   if (!s) return false;
-  // É central (CAF) se não tem fornecedor/distribuidor vinculado
-  return !(s.setor_fornecedor_id || s.setor_fornecedor || (s.distribuidores_relacionados && s.distribuidores_relacionados.length > 0));
+  // É central (CAF) se possui controle de estoque ativo e não tem fornecedor/distribuidor vinculado
+  return !!s.estoque && !(s.setor_fornecedor_id || s.setor_fornecedor || (s.distribuidores_relacionados && s.distribuidores_relacionados.length > 0));
 });
 
 const isRoleDisabled = (role) => {
@@ -128,11 +150,24 @@ onClickOutside(userPickerRef, () => {
 const loadData = async () => {
   const context = {
     $axios: parentContext.$axios,
-    $store: parentContext.$store,
+    $store: parentContext.$store || store,
     $toastr: parentContext.$toastr,
   };
 
   try {
+    if (props.setorId) {
+      const sStore = store || parentContext.$store;
+      const details = sStore?.state?.estoque?.setorDetails || parentContext?.setor?.value;
+      if (details && Number(details.id) === Number(props.setorId)) {
+        setorLocal.value = details;
+      } else {
+        const res = await functionsSetor.buscarSetorPorId(props.setorId);
+        if (res?.success && res.data) {
+          setorLocal.value = res.data;
+        }
+      }
+    }
+
     const linked = await Funcoes.listBySetor(context, props.setorId);
     const all = await Funcoes.listAllUsers(context);
 
@@ -143,18 +178,20 @@ const loadData = async () => {
   }
 };
 
-watch(isOpen, (newVal) => {
+watch(isOpen, async (newVal) => {
   userSearch.value = "";
   isUserListOpen.value = false;
 
   if (newVal) {
-    loadData();
+    await loadData();
     if (props.mode === "UP" && props.initialData) {
       form.value.usuario_id = props.initialData.usuario_id;
       form.value.perfil = props.initialData.perfil || "solicitante";
     } else {
-      // Set default form value when opening in ADD mode
-      const defaultRole = isRoleDisabled("solicitante") ? "admin" : "solicitante";
+      // Definir perfil padrão ao abrir no modo ADD
+      const defaultRole = isRoleDisabled("solicitante")
+        ? (hasEstoque.value ? "almoxarife" : "admin")
+        : "solicitante";
       form.value = { usuario_id: "", perfil: defaultRole };
     }
   } else {
