@@ -1,4 +1,4 @@
-name: progest-frontend
+name: progest-frontend # OK
 
 on: 
   pull_request:
